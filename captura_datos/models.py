@@ -8,7 +8,7 @@ class Ciudadano (models.Model):
     solapin = models.CharField(max_length = 7, unique=True)
     expediente=models.IntegerField()
     fecha_nacimiento = models.DateField()
-    created_At = models.DateField(auto_now_add = True,null=True)
+    created_At = models.DateField(auto_now_add = True,null=True)  #DateTimeField
     edad = models.IntegerField()
     rol_institucional = models.CharField(max_length = 200)
     area = models.CharField(max_length = 200)
