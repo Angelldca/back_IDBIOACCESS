@@ -1,6 +1,8 @@
 from .models import Ciudadano
 from rest_framework import viewsets, permissions, generics, status
+from django.db import connection
 from .serializers import CiudadanoSerializer
+from rest_framework.pagination import PageNumberPagination
 from .imgProcess import ImgProcess
 from rest_framework.response import Response
 from io import TextIOWrapper
@@ -8,11 +10,16 @@ from io import BytesIO
 from copy import copy
 import csv
 import cv2
+from django.db.models import Q
 
+
+class CiudadanoPagination(PageNumberPagination):
+     page_size_query_param = 10  # Número de elementos por páginas
 class CiudadanoViewSet(viewsets.ModelViewSet):
     queryset = Ciudadano.objects.all()
     permission_classes = [permissions.AllowAny]
     serializer_class = CiudadanoSerializer
+    pagination_class = CiudadanoPagination
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
         self.imgP = ImgProcess()
@@ -44,27 +51,43 @@ class CiudadanoViewSet(viewsets.ModelViewSet):
         instance.save()
         serializer = self.get_serializer(instance)
         return Response({'data': serializer.data,'detail': 'Actualización exitosa.'}, status=status.HTTP_200_OK)
-'''
-    def perform_update(self, serializer):
-        #lógica aquí antes de la actualización
-        request = self.request
-        if 'img' in request.data:
-            img_data = request.data.get('img')
-            img_data_copia = copy(img_data)
-            img_bytes = img_data.read()
-            img_data_copia = copy(img_bytes)
-            imgMediaPipe = self.imgP.blob_to_image(img_bytes)
-            isValid = self.imgP.validarImg(imgMediaPipe)
-            if isValid:
-                print(isValid)
-                serializer.instance.img = img_data_copia
-                #super(CiudadanoViewSet, self).perform_update(serializer)
-                serializer.save()
-                return Response({'detail': 'Actualización exitosa.'}, status=status.HTTP_200_OK)
-            else :
-                mensaje = "La imagen no cumple con los requisitos específicos."
-                return Response({'detail': mensaje}, status=status.HTTP_400_BAD_REQUEST)
-'''
+
+    def list(self, request, *args, **kwargs):
+        self.paginator.page_size = request.GET.get('page_size', self.paginator.page_size)
+        atributo_valores = request.GET.dict()
+        
+        nuevo_diccionario = {clave: valor for clave, valor in atributo_valores.items() if clave != 'page'}
+        query = Q()
+        for atributo, valor in atributo_valores.items():
+            if atributo != 'page_size':
+                
+                if(atributo == 'nombre_apellidos'):
+                    self.queryset = Ciudadano.objects.all()
+                    palabras = valor.split()
+                    for palabra in palabras:
+                        self.queryset = self.queryset.filter(nombre__icontains=palabra) | self.queryset.filter(apellidos__icontains=palabra)
+                    page = self.paginate_queryset(self.queryset)
+                    if page is not None:
+                        serializer = self.get_serializer(page, many=True)
+                        return self.get_paginated_response(serializer.data)
+                else:
+                    query |= Q(**{f'{atributo}': valor})
+                    
+       
+        if nuevo_diccionario:       
+            self.queryset = Ciudadano.objects.filter(query)
+            
+        page = self.paginate_queryset(self.queryset)
+        if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+        
+        
+        
+        serializer = self.get_serializer(self.queryset, many=True)
+        return Response(serializer.data)
+
+
 
 
 class CiudadanoListCreateView(viewsets.ViewSet):
