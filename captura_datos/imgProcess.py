@@ -6,8 +6,10 @@ from PIL import Image
 from io import BytesIO
 import joblib
 import cv2
+import base64
 import pandas as pd
 import numpy as np
+import imutils
 class ImgProcess:
         def __init__(self):
             self.model_path = 'captura_datos/face_landmarker.task'
@@ -17,45 +19,30 @@ class ImgProcess:
                                                        output_facial_transformation_matrixes=True,
                                                        num_faces=1)
             self.detector = vision.FaceLandmarker.create_from_options(self.options)
+            self.voting = joblib.load('captura_datos/votin_classifier_model.pkl')
 
+        
+        def recortar_imagen(self,blob,ancho):
+            img = self.blob_to_image(blob)
+            print(type(img), "imagen antes de recortar")
+            img_recortada = imutils.resize(img,height=ancho)
+            img_data = self.convertir_a_bytea(img_recortada)
+            #img_data = base64.b64decode(img_recortada.split(',')[1])
+            return img_data
 
-        def recortar_imagen(imagen, ancho_deseado, largo_deseado):
-            # Abrir la imagen utilizando Pillow
-            img = Image.open(imagen)
-    
-            # Calcular las dimensiones del recorte
-            ancho_actual, largo_actual = img.size
-            nuevo_ancho = min(ancho_actual, ancho_deseado)
-            nuevo_largo = min(largo_actual, largo_deseado)
-    
-            # Calcular las coordenadas para el recorte centrado
-            izquierda = (ancho_actual - nuevo_ancho) / 2
-            arriba = (largo_actual - nuevo_largo) / 2
-            derecha = (ancho_actual + nuevo_ancho) / 2
-            abajo = (largo_actual + nuevo_largo) / 2
-    
-            # Realizar el recorte
-            img_recortada = img.crop((izquierda, arriba, derecha, abajo))
-    
-            # Guardar o procesar la imagen recortada según sea necesario
-    
-            return img_recortada
-
-        def convertir_a_bytea(imagen_pillow):
+        def convertir_a_bytea(self,img):
             # Crear un objeto BytesIO para almacenar los bytes de la imagen
-            stream = BytesIO()
-            
-            # Guardar la imagen de Pillow en el stream
-            imagen_pillow.save(stream, format='PNG')  # Ajusta el formato según tu necesidad
-        
+            imagen_pil = Image.fromarray(img)
+
+            # Guardar la imagen en un búfer de bytes
+            buffer = BytesIO()
+            imagen_pil.save(buffer, format='JPEG')
+
             # Obtener los bytes de la imagen
-            bytes_imagen = stream.getvalue()
-        
-            return bytes_imagen
+            datos_bytes = buffer.getvalue()
+            return datos_bytes
         def getDataFace(self,image_request):
-            # STEP 3: Load the input image.
-            image = image_request  #mp.Image.create_from_file(image_request) #"test/v4.jpg"
-            
+            image = image_request
             # STEP 4: Detect face landmarks from the input image.
             detection_result =  self.detector.detect(image)
             col = {}
@@ -65,13 +52,13 @@ class ImgProcess:
                     col[result.category_name] = result.score
             return col
 
-        def validarImg(self,image_request):
+        def validarImg(self,image_request):   #image mediapipe
             #voting = VotingClassifier()
-            voting = joblib.load('captura_datos/votin_classifier_model.pkl')
+            
             col = self.getDataFace(image_request)
             if bool(col):
                 df = pd.DataFrame([col])
-                prediccion = voting.predict(df)
+                prediccion = self.voting.predict(df)
                 print(prediccion[0])
                 if prediccion[0] == 0:
                     return False
@@ -80,16 +67,23 @@ class ImgProcess:
 
 
         def blob_to_image(self,blob):
-            
-            
             # Decodificar el blob a una imagen
+            print(type(blob))
+            if( type(blob) is str):
+                blob = base64.b64decode(blob.split(',')[1])
             img_array = np.frombuffer(blob, np.uint8)
             img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
         
             # Convertir la imagen a formato RGB
             img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img_rgb = img_rgb.astype(np.uint8)
-            # Crear un objeto Image de MediaPipe
-            image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
+           
+            
         
+            return img_rgb
+
+        def blob_ImageMediapipe(self,img_rgb):
+            image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
+             # Crear un objeto Image de MediaPipe
             return image
+
