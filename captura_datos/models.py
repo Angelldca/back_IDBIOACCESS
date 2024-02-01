@@ -14,3 +14,4 @@ class Ciudadano (models.Model):
     area = models.CharField(max_length = 200)
     img = models.BinaryField(null=True, blank=True)
     entidad = models.CharField(max_length = 200, null= True)
+    fecha_imagen = models.DateField(null=True)
