@@ -1,6 +1,7 @@
 from .models import Ciudadano
 from rest_framework import viewsets, permissions, generics, status
 from rest_framework.views import APIView
+from django.db.utils import DataError
 from django.http import HttpResponse
 from rest_framework.decorators import action
 from django.db import connection
@@ -51,8 +52,12 @@ class CiudadanoViewSet(viewsets.ModelViewSet):
             if key not in ['img'] and value:
                 setattr(instance, key, value)
             else: return Response({'detail': 'no se permiten campos vacios.'}, status=status.HTTP_400_BAD_REQUEST)
-        instance.save()
-        serializer = self.get_serializer(instance)
+        try:
+           instance.save()
+           serializer = self.get_serializer(instance)
+        except DataError as e:
+            error_message = str(e)
+            return Response({'detail': error_message}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'data': serializer.data,'detail': 'Actualización exitosa.'}, status=status.HTTP_200_OK)
 #Listar ciudadanos paginados
     def list(self, request, *args, **kwargs):
