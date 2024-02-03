@@ -24,7 +24,7 @@ from django.db.models import Q
 
 class CiudadanoPagination(PageNumberPagination):
      page_size_query_param = 10  # Número de elementos por páginas
-     page_size = 5
+     page_size =8
 class CiudadanoViewSet(viewsets.ModelViewSet):
     queryset = Ciudadano.objects.all()
     permission_classes = [permissions.AllowAny]
