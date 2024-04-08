@@ -22,10 +22,39 @@ class ImgProcess:
             self.voting = joblib.load('captura_datos/votin_classifier_model.pkl')
 
         
-        def recortar_imagen(self,blob,ancho):
+        def recortar_imagen(self,blob,ancho_original,alto_original, ancho, alto):
             img = self.blob_to_image(blob)
             print(type(img), "imagen antes de recortar")
-            img_recortada = imutils.resize(img,height=ancho)
+            y_inicio = 0
+            x_inicio = (ancho_original - ancho) // 2  # Inicio del recorte para igualar los lados
+
+        # Calcular el punto final para el recorte
+            y_fin = min(alto_original, alto)  # Recortar por la parte superior, si la imagen es más alta que el tamaño deseado
+            x_fin = min(ancho_original, x_inicio + ancho)
+
+            # Recortar la imagen en el área definida
+            img_recortada = img[y_inicio:y_fin, x_inicio:x_fin]
+            
+        
+            '''
+            alfa = 1.1  # Factor de contraste
+            beta = 5   # Factor de brillo
+            imagen_mejorada = cv2.convertScaleAbs(img_recortada, alpha=alfa, beta=beta)
+
+            # Eliminar ruido con filtro gaussiano
+            imagen_suavizada = cv2.GaussianBlur(img_recortada, (5, 5), 0)
+             # Aumentar el contraste con ecualización del histograma
+
+            imagen_ecualizada = cv2.cvtColor(img_recortada, cv2.COLOR_BGR2GRAY)
+            imagen_ecualizada = cv2.equalizeHist(imagen_ecualizada)
+            # Aplicar enfoque a la imagen
+            kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
+            imagen_enfocada = cv2.filter2D(img_recortada, -1, kernel)
+
+            '''
+           
+
+
             img_data = self.convertir_a_bytea(img_recortada)
             #img_data = base64.b64decode(img_recortada.split(',')[1])
             return img_data
