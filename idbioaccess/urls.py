@@ -16,11 +16,14 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from captura_datos.api_seguridad import login, register
 
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('captura_datos.urls')),
+    path('api/seguridad/login/', login),
+    path('api/seguridad/registrar/', register),
 ]
 

@@ -6,6 +6,11 @@ from django.db.utils import DataError
 from django.http import HttpResponse
 from rest_framework.decorators import action
 from django.db import connection
+
+from rest_framework.decorators import authentication_classes, permission_classes
+from rest_framework.permissions import IsAuthenticated, DjangoModelPermissions
+from rest_framework.authentication import TokenAuthentication
+from .api_seguridad import CustomModelPermissions
 from .serializers import CiudadanoSerializer, CiudadanoBashSerializer, CiudadanoImageSerializer
 from rest_framework.pagination import PageNumberPagination
 from .imgProcess import ImgProcess
@@ -22,14 +27,15 @@ import cv2
 import os
 from django.db.models import Q
 from datetime import datetime
-
 class CiudadanoPagination(PageNumberPagination):
      page_size_query_param = 10  # Número de elementos por páginas
      page_size =6
 
+
+@authentication_classes([TokenAuthentication])
 class CiudadanoBashViewCapturaBiograficos(viewsets.ModelViewSet):
     queryset =Dciudadanobash.objects.all()
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
     serializer_class = CiudadanoBashSerializer
     pagination_class = CiudadanoPagination
     def __init__(self,**kwargs):
@@ -70,10 +76,11 @@ class CiudadanoBashViewCapturaBiograficos(viewsets.ModelViewSet):
         serializer = self.get_serializer(self.queryset, many=True)
         return Response(serializer.data)
 
+@authentication_classes([TokenAuthentication])
 class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
     queryset = Dciudadano.objects.all()
     imagenFacial = Dimagenfacial.objects.all()
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
     serializer_class = CiudadanoSerializer
     pagination_class = CiudadanoPagination
     def __init__(self,**kwargs):
@@ -240,9 +247,11 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
         serializer = self.get_serializer(self.queryset, many=True)
         return Response(serializer.data)
 #Exportar registro csv de ciudadanos sin captura de imagen     
+
+@authentication_classes([TokenAuthentication])
 class CiudadanoImageViewCapturaBiometricos(viewsets.ModelViewSet):
     queryset = Dimagenfacial.objects.all()
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
     serializer_class = CiudadanoImageSerializer
     pagination_class = CiudadanoPagination
     def __init__(self,**kwargs):
@@ -304,10 +313,9 @@ class CiudadanoImageViewCapturaBiometricos(viewsets.ModelViewSet):
         
 #########################
 
-
-########## Vista de archivos CSV
+@authentication_classes([TokenAuthentication])
 class CiudadanosCSVCreateView(viewsets.ViewSet):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
     
 #Importar lista de ciudadanos csv
     def create(self, request, *args, **kwargs): 
@@ -510,8 +518,9 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
         return response
 
 #Vista de procesamiento de imagen
+@authentication_classes([TokenAuthentication])
 class CiudadanoImageProcessView(viewsets.ViewSet):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
     pagination_class = CiudadanoPagination
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
@@ -526,4 +535,5 @@ class CiudadanoImageProcessView(viewsets.ViewSet):
             isValid = self.imgP.validarImg(imgMediaPipe)
             return Response({'data': isValid}, status=status.HTTP_200_OK)
         return Response({'error': f'No se proporcionó una imagen'}, status=status.HTTP_400_BAD_REQUEST)
-
+    def list(self, request, *args, **kwargs):
+        return Response({})
