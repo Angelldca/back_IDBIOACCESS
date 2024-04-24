@@ -19,6 +19,7 @@ from datetime import datetime
 from django.utils import timezone
 from io import TextIOWrapper
 from io import BytesIO
+import io
 from copy import copy
 import numpy as np
 import base64
@@ -147,7 +148,7 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
         serializer = self.get_serializer(self.queryset, many=True)
         return Response(serializer.data)
 # Ciudadanos sin captura de imagen
-    @action(detail=True, methods=["get"], name="ciudadanos_sinImg",url_path='ciudadanos_sin_img')
+    @action(detail=False, methods=["get"], name="ciudadanos_sin_img",url_path='ciudadanos_sin_img')
     def list_sin_imagen(self, request, *args, **kwargs):
         self.queryset = self.get_ciudadanos_sin_imagen()
         self.paginator.page_size = request.GET.get('page_size', self.paginator.page_size)
@@ -190,7 +191,7 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
         ciudadanos_sin_imagen = Dciudadano.objects.exclude(idciudadano__in=Subquery(subquery))
         return ciudadanos_sin_imagen
     #Listar ciudadanos creados por fecha
-    @action(detail=True, methods=["get"], name="ciudadanos_rangoFecha",url_path='ciudadanos_rangoFecha')
+    @action(detail=False, methods=["get"], name="ciudadanos_rangoFecha",url_path='ciudadanos_rangoFecha')
     def ciudadanos_rangoFecha(self, request, pk=None):
         self.paginator.page_size = request.GET.get('page_size', self.paginator.page_size)
         fecha_inicio_str = request.GET.get('fecha_inicio', '')
@@ -219,7 +220,7 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     #Listar captura de imagen por fecha
-    @action(detail=True, methods=["get"], name="ciudadanos_Img_rangoFecha",url_path='ciudadanos_Img_rangoFecha')
+    @action(detail=False, methods=["get"], name="ciudadanos_Img_rangoFecha",url_path='ciudadanos_Img_rangoFecha')
     def ciudadanos_Img_rangoFecha(self, request, pk=None):
         
         fecha_inicio_str = request.GET.get('fecha_inicio', '')
@@ -257,16 +258,16 @@ class CiudadanoImageViewCapturaBiometricos(viewsets.ModelViewSet):
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
         self.imgP = ImgProcess()
-    
-
      #Crear imagen 
     def create(self, request, *args, **kwargs):
         foto_data = self.request.data.get('foto')
         idciudadano = request.data.get('idciudadano')
+      
         imagen_recortada = self.imgP.recortar_imagen(foto_data,640, 480,300,400)
         imagen_facial = Dimagenfacial.objects.filter(idciudadano=idciudadano).first()
         fecha_actualizacion = timezone.now().date()
         if imagen_facial:
+            
             imagen_facial.foto = imagen_recortada
             imagen_facial.fecha_actualizacion = fecha_actualizacion
             imagen_facial.save()
@@ -290,7 +291,7 @@ class CiudadanoImageViewCapturaBiometricos(viewsets.ModelViewSet):
             img_data = request.data.get('foto')
             
             #imgMediaPipe = self.imgP.blob_to_image(img_data)
-            imagen_recortada = self.imgP.recortar_imagen(img_data,480)
+            imagen_recortada = self.imgP.recortar_imagen(img_data,640, 480,300,400)
             instance.foto = imagen_recortada
             instance.fecha_actualizacion = timezone.now().date()
             instance.save()
@@ -315,6 +316,7 @@ class CiudadanoImageViewCapturaBiometricos(viewsets.ModelViewSet):
 
 @authentication_classes([TokenAuthentication])
 class CiudadanosCSVCreateView(viewsets.ViewSet):
+    queryset = Dciudadano.objects.all()
     permission_classes = [IsAuthenticated, CustomModelPermissions]
     
 #Importar lista de ciudadanos csv
@@ -355,7 +357,7 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
         serializer_response = CiudadanoSerializer(ciudadanos, many=True)
         return Response(serializer_response.data, status=status.HTTP_201_CREATED)
 #descargar planilla para importar ciudadanos
-    @action(detail=True, methods=["get"], name="descargar_csv",url_path='descargar_csv')    
+    @action(detail=False, methods=["get"], name="descargar_csv",url_path='descargar_csv')    
     def descargar_csv(self,request,pk= None):
     # Ruta del archivo CSV en tu proyecto
         ruta_csv = './captura_datos/planilla_ciudadanos.csv'  # Reemplaza esto con la ruta correcta
@@ -376,27 +378,30 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
         else:
             return HttpResponse("El archivo CSV no se encuentra.", status=404)
 #descargar csv con lista de ciudadanos
-    @action(detail=True, methods=["get"], name="ciudadanos_entidad_csv",url_path='ciudadanos_entidad_csv')
+    @action(detail=False, methods=["get"], name="ciudadanos_entidad_csv",url_path='ciudadanos_entidad_csv')
     def listCiudadanosEntidad(self,request,pk= None):
         
         ciudadanos = Dciudadano.objects.all()
         response = HttpResponse(content_type ='text/csv')
         response['Content-Disposition'] = f'attachment; filename="ciudadanos_UCI.csv"'
 
-        # Creamos el escritor CSV
-        writer = csv.writer(response)
-
-       
-        writer.writerow(['ID', 'Primer Nombre','Segundo Nombre','Primer Apellido', 'Segundo Apellido',
+        csv_buffer = io.StringIO()
+        csv_writer = csv.DictWriter(csv_buffer, fieldnames=['ID', 'Primer Nombre','Segundo Nombre','Primer Apellido', 'Segundo Apellido',
          'DNI', 'Solapin','Area','Rol Institucional',
-         'Fecha de nacimiento','Expediente','Provincia','Municipio','Sexo','Residente'])
+         'Fecha de nacimiento','Expediente','Provincia',
+         'Municipio','Sexo','Residente'], extrasaction="ignore")
+        csv_writer.writeheader()
+        csv_writer = csv.writer(response)
+        #writer = csv.writer(response)
+       
+        #writer.writerow()
 
-        # Escribimos los datos de los ciudadanos
+   
         for ciudadano in ciudadanos:
             fecha_nacimiento = None
             if(ciudadano.fechanacimiento):
              fecha_nacimiento = ciudadano.fechanacimiento.strftime('%d-%m-%Y')
-            writer.writerow([ciudadano.idciudadano, ciudadano.primernombre,ciudadano.segundonombre,
+            csv_writer.writerow([ciudadano.idciudadano, ciudadano.primernombre,ciudadano.segundonombre,
             ciudadano.primerapellido, ciudadano.segundoapellido,
              ciudadano.carnetidentidad,ciudadano.solapin,ciudadano.area,ciudadano.roluniversitario,
              fecha_nacimiento,ciudadano.idexpediente,ciudadano.provincia,
@@ -404,8 +409,9 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
 
         return response
 #exportar Listar ciudadanos creados por fecha csv
-    @action(detail=True, methods=["get"], name="ciudadanos_fecha_csv",url_path='ciudadanos_fecha_csv')
+    @action(detail=False, methods=["get"], name="ciudadanos_fecha_csv",url_path='ciudadanos_fecha_csv')
     def listCiudadanosFecha(self,request,pk= None):
+        
         ciudadanos = Dciudadano.objects.all()
         fecha_inicio_str = request.GET.get('fecha_inicio', '')
         fecha_fin_str = request.GET.get('fecha_fin', '')
@@ -422,7 +428,7 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="ciudadanos_creados_por_fecha.csv"'
 
-        # Creamos el escritor CSV
+        
         writer = csv.writer(response)
 
         
@@ -446,7 +452,7 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
 
         return response
 #exportar Lista de fotos capturadas de ciudadanos por fecha csv
-    @action(detail=True, methods=["get"], name="ciudadanos_fecha_foto_csv",url_path='ciudadanos_fecha_foto_csv')
+    @action(detail=False, methods=["get"], name="ciudadanos_fecha_foto_csv",url_path='ciudadanos_fecha_foto_csv')
     def listCiudadanos_fotos_Fecha(self,request,pk= None):
         fecha_inicio_str = request.GET.get('fecha_inicio', '')
         fecha_fin_str = request.GET.get('fecha_fin', '')
@@ -463,10 +469,10 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="ciudadanos_fecha_foto_csv.csv"'
 
-        # Creamos el escritor CSV
+
         writer = csv.writer(response)
 
-        # Escribimos la fila de encabezados
+    
         writer.writerow(['ID', 'Primer Nombre','Segundo Nombre','Primer Apellido', 'Segundo Apellido',
          'DNI', 'Solapin','Area','Rol Institucional',
          'Fecha de nacimiento','Expediente','Provincia','Municipio','Sexo','Residente', 'fecha de imagen'])
@@ -490,7 +496,8 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
 
         return response
 #Descargar lista de ciudadanos sin captura de imagenes en csv
-    def list(self, request):
+    @action(detail=False, methods=["get"], name="ciudadanossinimg_csv",url_path='ciudadanossinimg_csv')
+    def ciudadanossinImg(self, request):
         ciudadanos_con_imagen = Dimagenfacial.objects.values_list('idciudadano', flat=True)
         ciudadanos = Dciudadano.objects.exclude(idciudadano__in=ciudadanos_con_imagen)
         response = HttpResponse(content_type='text/csv')
@@ -499,12 +506,12 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
         # Creamos el escritor CSV
         writer = csv.writer(response)
 
-        # Escribimos la fila de encabezados
+ 
         writer.writerow(['ID', 'Primer Nombre','Segundo Nombre','Primer Apellido', 'Segundo Apellido',
          'DNI', 'Solapin','Area','Rol Institucional',
          'Fecha de nacimiento','Expediente','Provincia','Municipio','Sexo','Residente'])
 
-        # Escribimos los datos de los ciudadanos
+  
         for ciudadano in ciudadanos:
             fecha_nacimiento = None
             if(ciudadano.fechanacimiento):
@@ -520,13 +527,15 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
 #Vista de procesamiento de imagen
 @authentication_classes([TokenAuthentication])
 class CiudadanoImageProcessView(viewsets.ViewSet):
+    queryset = Dimagenfacial.objects.all()
     permission_classes = [IsAuthenticated, CustomModelPermissions]
     pagination_class = CiudadanoPagination
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
         self.imgP = ImgProcess()
 #Validar Imagen
-    def post(self, request, *args, **kwargs):
+    @action(detail=False, methods=['post'],name="validateimg",url_path='validateimg')
+    def validateImg (self, request, pk =None):
         #instance = self.get_object()
         if 'img' in request.data:
             img_data = request.data.get('img')

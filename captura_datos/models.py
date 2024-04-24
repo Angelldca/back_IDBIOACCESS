@@ -56,7 +56,7 @@ class Dciudadanobash(models.Model):
 
 
 class Dciudadanosolapin(models.Model):
-    idciudadano = models.OneToOneField(Dciudadano, models.DO_NOTHING, db_column='idciudadano', primary_key=True)  # The composite primary key (idciudadano, idsolapin) found, that is not supported. The first column is selected.
+    idciudadano = models.OneToOneField(Dciudadano, on_delete=models.CASCADE, db_column='idciudadano', primary_key=True)  # The composite primary key (idciudadano, idsolapin) found, that is not supported. The first column is selected.
     idsolapin = models.OneToOneField('Dsolapin', models.DO_NOTHING, db_column='idsolapin')
     fecha = models.DateTimeField()
 
@@ -67,7 +67,7 @@ class Dciudadanosolapin(models.Model):
 
 class Dciudadanosolapinhist(models.Model):
     idciudadanosolapinhist = models.AutoField(primary_key=True)
-    idciudadano = models.ForeignKey(Dciudadano, models.DO_NOTHING, db_column='idciudadano')
+    idciudadano = models.ForeignKey(Dciudadano, on_delete=models.CASCADE, db_column='idciudadano')
     idsolapin = models.ForeignKey('Dsolapin', models.DO_NOTHING, db_column='idsolapin')
     fechaactivado = models.DateTimeField(blank=True, null=True)
     serialsolapin = models.CharField(max_length=10, blank=True, null=True)
@@ -98,7 +98,7 @@ class Dexcepcion(models.Model):
 
 
 class Dhuellaciudadano(models.Model):
-    idciudadano = models.OneToOneField(Dciudadano, models.DO_NOTHING, db_column='idciudadano', primary_key=True)  # The composite primary key (idciudadano, idtipohuella) found, that is not supported. The first column is selected.
+    idciudadano = models.OneToOneField(Dciudadano, on_delete=models.CASCADE, db_column='idciudadano', primary_key=True)  # The composite primary key (idciudadano, idtipohuella) found, that is not supported. The first column is selected.
     idtipohuella = models.ForeignKey('Ntipohuellaciudadano', models.DO_NOTHING, db_column='idtipohuella')
     huella = models.BinaryField()
     minucia = models.BinaryField()
@@ -119,7 +119,7 @@ class Didentbiometrico(models.Model):
 
 
 class Dimagenfacial(models.Model):
-    idciudadano = models.OneToOneField(Dciudadano, models.DO_NOTHING, db_column='idciudadano', primary_key=True)
+    idciudadano = models.OneToOneField(Dciudadano, on_delete=models.CASCADE, db_column='idciudadano', primary_key=True)
     foto = models.BinaryField()
     valida = models.BooleanField(blank=True, null=True)
     fecha = models.DateTimeField(blank=True, null=True)
@@ -188,7 +188,7 @@ class Doperacionsolicitud(models.Model):
 class Doperacionsolicitudhist(models.Model):
     idoperacion = models.AutoField(primary_key=True)  # The composite primary key (idoperacion, fechaoperacion) found, that is not supported. The first column is selected.
     fechaoperacion = models.DateTimeField()
-    idsolicitudimpresion = models.ForeignKey('Dsolicitudimpresionhist', models.DO_NOTHING, db_column='idsolicitudimpresion')
+    idsolicitudimpresion = models.ForeignKey('Dsolicitudimpresionhist',on_delete=models.CASCADE, db_column='idsolicitudimpresion')
     idestado = models.IntegerField()
     idusuario = models.ForeignKey('Dusuario', models.DO_NOTHING, db_column='idusuario', blank=True, null=True)
 
@@ -273,7 +273,7 @@ class Dsolicitudimpresionhist(models.Model):
     idsolicitudimpresion = models.AutoField(primary_key=True)
     fecha = models.DateTimeField()
     completado = models.CharField(max_length=1)
-    idciudadano = models.ForeignKey(Dciudadano, models.DO_NOTHING, db_column='idciudadano')
+    idciudadano = models.ForeignKey(Dciudadano, db_column='idciudadano',on_delete=models.CASCADE)
     numeroorden = models.CharField(max_length=30, blank=True, null=True)
     idusuario = models.ForeignKey('Dusuario', models.DO_NOTHING, db_column='idusuario')
     fechacierre = models.DateTimeField()

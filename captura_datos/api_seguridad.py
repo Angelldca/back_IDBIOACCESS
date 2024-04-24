@@ -83,14 +83,34 @@ class GroupViewSet(viewsets.ModelViewSet):
 
 @api_view(['POST'])
 def login(request):
-
+        serializer_class = UserSerializer
         username = request.data.get('username')
         password = request.data.get('password')
         user = authenticate(username=username, password=password)
         if user is not None:
             
             token, created = Token.objects.get_or_create(user=user)
-            return Response({'token': token.key, 'user': {'id': user.id, 'username': user.username}})
+            user_info = {
+                    'id': user.id,
+                    'username': user.username,
+                    'is_superuser': user.is_superuser,
+                    'is_staff': user.is_staff,
+                    'is_active': user.is_active,
+                    # Obtener información completa de los roles y permisos
+                    'roles': [],
+                    'permissions': list(user.user_permissions.values_list('codename', flat=True))
+                }
+                
+                # Obtener información completa de los roles del usuario
+            for group in user.groups.all():
+                    role_info = {
+                        'id': group.id,
+                        'name': group.name,
+                        # Obtener los permisos asociados al rol
+                        'permissions': list(group.permissions.values_list('codename', flat=True))
+                    }
+                    user_info['roles'].append(role_info)
+            return Response({'token': token.key, 'user': user_info})
         else:
             # Verificar si el usuario existe
             try:
@@ -99,7 +119,7 @@ def login(request):
                 return Response({'error': 'La contraseña es incorrecta.'}, status=status.HTTP_401_UNAUTHORIZED)
             except User.DoesNotExist:
                 # Si el usuario no existe en absoluto
-                return Response({'error': 'El nombre de usuario no existe.'}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({'error': 'El usuario no está registrado.'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 @api_view(['POST'])

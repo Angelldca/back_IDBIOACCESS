@@ -50,6 +50,7 @@ class PermissionSerializer(serializers.ModelSerializer):
 
 
 class GroupSerializer(serializers.ModelSerializer):
+    #permissions = PermissionSerializer(many=True)
     class Meta:
         model = Group
         fields = '__all__'
@@ -58,4 +59,10 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = '__all__'
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Excluir el campo de contraseña si se está listando
+        if self.context['request'].method == 'GET':
+            del data['password']
+        return data
 
