@@ -8,8 +8,8 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, action
 from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import Group, Permission, User
-from .serializers import PermissionSerializer, GroupSerializer, UserSerializer
-
+from .serializers import PermissionSerializer, GroupSerializer, UserSerializer, LoginSerializer
+from rest_framework_simplejwt.tokens import TokenError, AccessToken
 from rest_framework.decorators import authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated,BasePermission, DjangoModelPermissions, DjangoObjectPermissions
 from rest_framework.authentication import TokenAuthentication
@@ -26,7 +26,7 @@ class CustomModelPermissions(DjangoModelPermissions):
         self.perms_map['GET'] = ['%(app_label)s.view_%(model_name)s']
 
 
-@authentication_classes([TokenAuthentication])
+
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     permission_classes=[IsAuthenticated,CustomModelPermissions]
@@ -48,13 +48,13 @@ class UserViewSet(viewsets.ModelViewSet):
         super().perform_update(serializer)
 
 
-@authentication_classes([TokenAuthentication])
+
 class PermissionViewSet(viewsets.ModelViewSet):
     permission_classes=[IsAuthenticated,CustomModelPermissions]
     queryset = Permission.objects.all()
     serializer_class = PermissionSerializer
     pagination_class = None
-@authentication_classes([TokenAuthentication])
+#@authentication_classes([TokenAuthentication])
 class GroupViewSet(viewsets.ModelViewSet):
     permission_classes=[IsAuthenticated,CustomModelPermissions]
     queryset = Group.objects.all()
@@ -83,14 +83,11 @@ class GroupViewSet(viewsets.ModelViewSet):
 
 @api_view(['POST'])
 def login(request):
-        serializer_class = UserSerializer
-        username = request.data.get('username')
-        password = request.data.get('password')
-        user = authenticate(username=username, password=password)
-        if user is not None:
-            
-            token, created = Token.objects.get_or_create(user=user)
-            user_info = {
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        user_serializer = UserSerializer(user)
+        user_info = {
                     'id': user.id,
                     'username': user.username,
                     'is_superuser': user.is_superuser,
@@ -100,9 +97,7 @@ def login(request):
                     'roles': [],
                     'permissions': list(user.user_permissions.values_list('codename', flat=True))
                 }
-                
-                # Obtener información completa de los roles del usuario
-            for group in user.groups.all():
+        for group in user.groups.all():
                     role_info = {
                         'id': group.id,
                         'name': group.name,
@@ -110,28 +105,45 @@ def login(request):
                         'permissions': list(group.permissions.values_list('codename', flat=True))
                     }
                     user_info['roles'].append(role_info)
-            return Response({'token': token.key, 'user': user_info})
-        else:
-            # Verificar si el usuario existe
-            try:
-                user = User.objects.get(username=username)
-                # Si el usuario existe, pero la contraseña es incorrecta
-                return Response({'error': 'La contraseña es incorrecta.'}, status=status.HTTP_401_UNAUTHORIZED)
-            except User.DoesNotExist:
-                # Si el usuario no existe en absoluto
-                return Response({'error': 'El usuario no está registrado.'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({
+            'user': user_info,
+            'refresh': serializer.validated_data['refresh'],
+            'token': serializer.validated_data['access']
+        }, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
 def register(request):
-    serializer = UserSerializer(data = request.data)
+    serializer = UserSerializer(data=request.data)
     if serializer.is_valid():
         username = serializer.validated_data['username']
-        password = serializer.validated_data['password'] 
+        password = serializer.validated_data['password']
+        
+        # Crear un nuevo usuario
         user = User.objects.create_user(username=username, password=password)
-        user.save()
-        token = Token.objects.create(user=user)
-        return Response({'token': token.key, 'user': serializer.data}, status= status.HTTP_201_CREATED)
+        
+        # Generar tokens JWT
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'refresh': str(refresh),
+            'token': str(refresh.access_token),
+            'user': serializer.data
+        }, status=status.HTTP_201_CREATED)
     
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def validateToken(request):
+    token = request.data.get('token')
     
-    return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+    if not token:
+        return Response({'error': 'Se requiere un token en la solicitud.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        decoded_token = AccessToken(token)
+        token_data = decoded_token.payload
+        return Response(token_data, status=status.HTTP_200_OK)
+    except TokenError as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

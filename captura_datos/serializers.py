@@ -2,7 +2,8 @@ from rest_framework import serializers
 from .models import Dciudadanobash, Dimagenfacial, Dciudadano, Nestado
 from django.contrib.auth.models import Group, Permission, User
 from datetime import datetime, date
-
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
 class CustomDateField(serializers.ReadOnlyField):
     def to_representation(self, value):
         if value == date.max:  # Si es 'infinity'
@@ -65,4 +66,23 @@ class UserSerializer(serializers.ModelSerializer):
         if self.context['request'].method == 'GET':
             del data['password']
         return data
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField()
+
+    def validate(self, attrs):
+        username = attrs.get('username')
+        password = attrs.get('password')
+
+        user = authenticate(username=username, password=password)
+
+        if not user:
+            raise serializers.ValidationError('No se encontró ningún usuario con estas credenciales')
+
+        return {
+            'user': user,
+            'refresh': str(RefreshToken.for_user(user)),
+            'access': str(RefreshToken.for_user(user).access_token),
+        }
 

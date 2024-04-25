@@ -33,7 +33,7 @@ class CiudadanoPagination(PageNumberPagination):
      page_size =6
 
 
-@authentication_classes([TokenAuthentication])
+
 class CiudadanoBashViewCapturaBiograficos(viewsets.ModelViewSet):
     queryset =Dciudadanobash.objects.all()
     permission_classes = [IsAuthenticated, CustomModelPermissions]
@@ -77,7 +77,6 @@ class CiudadanoBashViewCapturaBiograficos(viewsets.ModelViewSet):
         serializer = self.get_serializer(self.queryset, many=True)
         return Response(serializer.data)
 
-@authentication_classes([TokenAuthentication])
 class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
     queryset = Dciudadano.objects.all()
     imagenFacial = Dimagenfacial.objects.all()
@@ -249,7 +248,7 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
         return Response(serializer.data)
 #Exportar registro csv de ciudadanos sin captura de imagen     
 
-@authentication_classes([TokenAuthentication])
+
 class CiudadanoImageViewCapturaBiometricos(viewsets.ModelViewSet):
     queryset = Dimagenfacial.objects.all()
     permission_classes = [IsAuthenticated, CustomModelPermissions]
@@ -314,7 +313,7 @@ class CiudadanoImageViewCapturaBiometricos(viewsets.ModelViewSet):
         
 #########################
 
-@authentication_classes([TokenAuthentication])
+
 class CiudadanosCSVCreateView(viewsets.ViewSet):
     queryset = Dciudadano.objects.all()
     permission_classes = [IsAuthenticated, CustomModelPermissions]
@@ -525,7 +524,7 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
         return response
 
 #Vista de procesamiento de imagen
-@authentication_classes([TokenAuthentication])
+
 class CiudadanoImageProcessView(viewsets.ViewSet):
     queryset = Dimagenfacial.objects.all()
     permission_classes = [IsAuthenticated, CustomModelPermissions]
