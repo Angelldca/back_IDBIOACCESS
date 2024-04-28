@@ -34,17 +34,25 @@ class UserViewSet(viewsets.ModelViewSet):
     pagination_class = None
 
     def perform_create(self, serializer):
-       
-        password = serializer.validated_data['password']
-        hashed_password = make_password(password)
-        serializer.validated_data['password'] = hashed_password
-        super().perform_create(serializer)
+       if 'password' in serializer.validated_data:
+            password = serializer.validated_data['password']
+            hashed_password = make_password(password)
+            serializer.validated_data['password'] = hashed_password
+       super().perform_create(serializer)
 
     def perform_update(self, serializer):
         if 'password' in serializer.validated_data:
             password = serializer.validated_data['password']
             hashed_password = make_password(password)
             serializer.validated_data['password'] = hashed_password
+        grupos = self.request.data.get('groups', None)
+        permisos = self.request.data.get('user_permissions', None)
+
+        if grupos is not None:
+            serializer.instance.groups.set(grupos)
+        if permisos is not None:
+            serializer.instance.user_permissions.set(permisos)
+           
         super().perform_update(serializer)
 
 

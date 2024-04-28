@@ -57,6 +57,8 @@ class GroupSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class UserSerializer(serializers.ModelSerializer):
+    user_permissions = serializers.SerializerMethodField(read_only=False)
+    groups = serializers.SerializerMethodField(read_only=False)
     class Meta:
         model = User
         fields = '__all__'
@@ -66,6 +68,17 @@ class UserSerializer(serializers.ModelSerializer):
         if self.context['request'].method == 'GET':
             del data['password']
         return data
+    def get_user_permissions(self, obj):
+        if self.context['request'].method == 'GET':
+            user_permissions = obj.user_permissions.all()
+            return PermissionSerializer(user_permissions, many=True).data
+        return obj.user_permissions.values_list('id', flat=True)
+
+    def get_groups(self, obj):
+        if self.context['request'].method == 'GET':
+            groups = obj.groups.all()
+            return GroupSerializer(groups, many=True).data
+        return obj.groups.values_list('id', flat=True)
 
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
