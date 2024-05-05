@@ -1,9 +1,14 @@
 from rest_framework import serializers
 from .models import Dciudadanobash, Dimagenfacial, Dciudadano, Nestado
 from django.contrib.auth.models import Group, Permission, User
+from django.contrib.admin.models import LogEntry
 from datetime import datetime, date
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.contenttypes.models import ContentType
+
+
+
 class CustomDateField(serializers.ReadOnlyField):
     def to_representation(self, value):
         if value == date.max:  # Si es 'infinity'
@@ -49,6 +54,34 @@ class PermissionSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class LogEntrySerializer(serializers.ModelSerializer):
+    content_type_name = serializers.SerializerMethodField()
+    user_username = serializers.SerializerMethodField()
+    action_description = serializers.SerializerMethodField()
+    #permissions = PermissionSerializer(many=True)
+    class Meta:
+        model = LogEntry
+        fields = '__all__'
+
+    def get_content_type_name(self, obj):
+        content_type = ContentType.objects.get_for_id(obj.content_type_id)
+        return content_type.model
+    def get_user_username(self, obj):
+        user = User.objects.get(pk=obj.user_id)
+        return user.username
+    def get_action_description(self, obj):
+        if obj.action_flag == 1:
+           
+            return "Creado"
+        elif obj.action_flag == 2:
+           
+            change_message = obj.get_change_message()
+            
+            return change_message
+        elif obj.action_flag == LogEntry.DELETION:
+            return "Eliminado"
+        else:
+            return "Desconocido"
 
 class GroupSerializer(serializers.ModelSerializer):
     #permissions = PermissionSerializer(many=True)

@@ -83,9 +83,9 @@ WSGI_APPLICATION = 'idbioaccess.wsgi.application'
 DATABASES = {
     'default': {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "db_prueba",
+        "NAME": "db_IDEBIOACCESS",
         "USER": "postgres",
-        "PASSWORD": "Angel4167*",
+        "PASSWORD": "1234",
         "HOST": "127.0.0.1",
         "PORT": "5432",
     }

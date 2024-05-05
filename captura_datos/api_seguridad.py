@@ -8,14 +8,17 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, action
 from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import Group, Permission, User
-from .serializers import PermissionSerializer, GroupSerializer, UserSerializer, LoginSerializer
-from rest_framework_simplejwt.tokens import TokenError, AccessToken
+from .serializers import PermissionSerializer, GroupSerializer, UserSerializer, LoginSerializer,LogEntrySerializer
+from django.contrib.admin.models import LogEntry
+
+from rest_framework_simplejwt.tokens import TokenError, AccessToken, RefreshToken
 from rest_framework.decorators import authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated,BasePermission, DjangoModelPermissions, DjangoObjectPermissions
 from rest_framework.authentication import TokenAuthentication
-
-
-
+from django.http import HttpResponse
+from datetime import datetime
+from django.utils import timezone
+import csv
 import copy
 
 
@@ -56,6 +59,44 @@ class UserViewSet(viewsets.ModelViewSet):
         super().perform_update(serializer)
 
 
+    @action(detail=False, methods=["get"], name="user_autenticados",url_path='user_autenticados')
+    def user_autenticados(self, request, pk=None):
+        
+         # Filtrar ciudadanos por el rango de fechas
+        users = User.objects.all()
+        for usuario in users:
+            if(usuario.last_login):
+             usuario.last_login = usuario.last_login.strftime('%d-%m-%Y %H:%M:%S')
+         
+        self.queryset =users
+          
+        
+        serializer = self.get_serializer(self.queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], name="user_autenticados_csv",url_path='user_autenticados_csv')
+    def user_autenticados_csv(self,request,pk= None):
+        
+        users = User.objects.all()
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="ciudadanos_creados_por_fecha.csv"'
+
+        
+        writer = csv.writer(response)
+
+        
+        writer.writerow(['id', 'first_name','last_name','email', 'username',
+         'fecha de inicio de seccion'])
+
+ 
+        for usuario in users:
+            fecha_login = None
+            if(usuario.last_login):
+             fecha_login = usuario.last_login.strftime('%d-%m-%Y %H:%M:%S')
+            writer.writerow([usuario.id, usuario.first_name,usuario.last_name,usuario.email,
+            usuario.username, fecha_login])
+
+        return response
 
 class PermissionViewSet(viewsets.ModelViewSet):
     permission_classes=[IsAuthenticated,CustomModelPermissions]
@@ -87,7 +128,69 @@ class GroupViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
+class LogEntryViewSet(viewsets.ModelViewSet):
+    permission_classes=[IsAuthenticated,CustomModelPermissions]
+    queryset = LogEntry.objects.all()
+    serializer_class = LogEntrySerializer
+    pagination_class = None
 
+    @action(detail=False, methods=["get"], name="historial_usuario",url_path='historial_usuario')
+    def historial_usuario(self, request, pk=None):
+        
+        userid = request.query_params.get('userid', None)
+        if userid is None:
+            return Response({"error": "Debes proporcionar un nombre de usuario"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = User.objects.get(id=userid)
+        except User.DoesNotExist:
+            return Response({"error": "El usuario no existe"}, status=status.HTTP_404_NOT_FOUND)
+        
+        log_entries = LogEntry.objects.filter(user=user)
+        for log in log_entries:
+            if(log.action_time):
+             log.action_time = log.action_time.strftime('%d-%m-%Y %H:%M:%S')
+
+        serializer = self.get_serializer(log_entries, many=True)
+        return Response(serializer.data)
+    
+    #Exportar acciones realizadas por usuarios en csv
+    @action(detail=False, methods=["get"], name="historial_usuario_csv",url_path='historial_usuario_csv')
+    def historial_usuario_csv(self,request,pk= None):
+        
+        userid = request.query_params.get('userid', None)
+        if userid is None:
+            return Response({"error": "Debes proporcionar un nombre de usuario"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = User.objects.get(id=userid)
+        except User.DoesNotExist:
+            return Response({"error": "El usuario no existe"}, status=status.HTTP_404_NOT_FOUND)
+        
+        log_entries = LogEntry.objects.filter(user=user)
+        serializer = self.get_serializer(log_entries, many=True)
+
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="acciones por ciudadanos.csv"'
+
+        
+        writer = csv.writer(response)
+
+        
+        writer.writerow(['fecha','responsable', 'modelo modificado','elemento modificado','accion'])
+
+ 
+        for log in serializer.data:
+            fecha = None
+            print(log['content_type_name'])
+            if(log['action_time']):
+             fecha = log['action_time'][:10] if log['action_time'] else ""
+            writer.writerow([fecha, log['user_username'],log['content_type_name'],log['object_repr'],
+            log['action_description'] ])
+
+        return response
+    
 
 @api_view(['POST'])
 def login(request):

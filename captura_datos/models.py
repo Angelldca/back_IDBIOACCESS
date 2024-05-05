@@ -24,6 +24,8 @@ class Dciudadano(models.Model):
 
     class Meta:
         db_table = 'dciudadano'
+    def __str__(self):
+        return self.primernombre
 class Dcandidatos(models.Model):
     idincidencia = models.OneToOneField('Dincidenciasafis', models.DO_NOTHING, db_column='idincidencia', primary_key=True)  # The composite primary key (idincidencia, idciudbio) found, that is not supported. The first column is selected.
     fecha = models.DateTimeField(blank=True, null=True)
@@ -53,6 +55,8 @@ class Dciudadanobash(models.Model):
 
     class Meta:
         db_table = 'dciudadanobash'
+    def __str__(self):
+        return self.primernombre
 
 
 class Dciudadanosolapin(models.Model):
@@ -124,6 +128,8 @@ class Dimagenfacial(models.Model):
     valida = models.BooleanField(blank=True, null=True)
     fecha = models.DateTimeField(blank=True, null=True)
     fecha_actualizacion = models.DateField(blank=True, null=True)
+    def __str__(self):
+        return self.idciudadano
 
     class Meta:
         db_table = 'dimagenfacial'
@@ -227,6 +233,8 @@ class Dsolapin(models.Model):
     estado = models.CharField(max_length=1, blank=True, null=True)
     idtiposolapin = models.ForeignKey('Ntiposolapin', models.DO_NOTHING, db_column='idtiposolapin', blank=True, null=True)
     fecha = models.DateTimeField(blank=True, null=True)
+    def __str__(self):
+        return self.numerosolapin
 
     class Meta:
         db_table = 'dsolapin'
@@ -289,6 +297,8 @@ class Dusuario(models.Model):
     correo = models.CharField(max_length=100, blank=True, null=True)
     fechacreacion = models.DateTimeField(blank=True, null=True)
     estado = models.BooleanField(blank=True, null=True)
+    def __str__(self):
+        return self.nombre
 
     class Meta:
         db_table = 'dusuario'
