@@ -74,14 +74,10 @@ class LogEntrySerializer(serializers.ModelSerializer):
            
             return "Creado"
         elif obj.action_flag == 2:
-           
             change_message = obj.get_change_message()
-            
             return change_message
-        elif obj.action_flag == LogEntry.DELETION:
-            return "Eliminado"
         else:
-            return "Desconocido"
+            return "Eliminado"
 
 class GroupSerializer(serializers.ModelSerializer):
     #permissions = PermissionSerializer(many=True)

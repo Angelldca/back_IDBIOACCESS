@@ -10,7 +10,7 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import Group, Permission, User
 from .serializers import PermissionSerializer, GroupSerializer, UserSerializer, LoginSerializer,LogEntrySerializer
 from django.contrib.admin.models import LogEntry
-
+from django.contrib.contenttypes.models import ContentType
 from rest_framework_simplejwt.tokens import TokenError, AccessToken, RefreshToken
 from rest_framework.decorators import authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated,BasePermission, DjangoModelPermissions, DjangoObjectPermissions
@@ -41,6 +41,16 @@ class UserViewSet(viewsets.ModelViewSet):
             password = serializer.validated_data['password']
             hashed_password = make_password(password)
             serializer.validated_data['password'] = hashed_password
+       serializer.save()
+       user = serializer.instance
+       LogEntry.objects.create(
+            user_id=self.request.user.id,
+            content_type_id=ContentType.objects.get_for_model(User).pk,  # Obtener el ContentType para el modelo Group
+            object_id=user.id,
+            object_repr=str(user.username),
+            action_time=timezone.now(),
+            action_flag=1
+        )
        super().perform_create(serializer)
 
     def perform_update(self, serializer):
@@ -55,8 +65,32 @@ class UserViewSet(viewsets.ModelViewSet):
             serializer.instance.groups.set(grupos)
         if permisos is not None:
             serializer.instance.user_permissions.set(permisos)
-           
+        user = serializer.instance
+        LogEntry.objects.create(
+            user_id=self.request.user.id,
+            content_type_id=ContentType.objects.get_for_model(User).pk,  # Obtener el ContentType para el modelo Group
+            object_id=user.id,
+            object_repr=str(user.username),
+            action_time=timezone.now(),
+            change_message="Modificado",
+            action_flag=2
+        )
         super().perform_update(serializer)
+
+    def perform_destroy(self, instance):
+        #user = serializer.instance
+        user = instance
+        # Eliminamos el objeto
+        super().perform_destroy(instance)
+        LogEntry.objects.create(
+            user_id=self.request.user.id,
+            content_type_id=ContentType.objects.get_for_model(User).pk,
+            object_id=user.id,
+            object_repr=str(user.username),
+            action_time=timezone.now(),
+            action_flag=3
+        )
+        #super().perform_delete(serializer)
 
 
     @action(detail=False, methods=["get"], name="user_autenticados",url_path='user_autenticados')
@@ -116,6 +150,15 @@ class GroupViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         group = serializer.save()
 
+        LogEntry.objects.create(
+            user_id=request.user.id,
+            content_type_id=ContentType.objects.get_for_model(Group).pk,  # Obtener el ContentType para el modelo Group
+            object_id=group.id,
+            object_repr=str(group.name),
+            action_time=timezone.now(),
+            action_flag=1
+        )
+
         # Asignar permisos al grupo
         for perm_id in permissions_data:
             try:
@@ -126,6 +169,34 @@ class GroupViewSet(viewsets.ModelViewSet):
 
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    def perform_update(self,serializer):
+        group = serializer.instance
+        LogEntry.objects.create(
+            user_id=self.request.user.id,
+            content_type_id=ContentType.objects.get_for_model(Group).pk,  # Obtener el ContentType para el modelo Group
+            object_id=group.id,
+            object_repr=str(group.name),
+            action_time=timezone.now(),
+            change_message="Modificado",
+            action_flag=2
+        )
+        super().perform_update(serializer)
+
+    def perform_destroy(self, instance):
+        group = instance
+
+        # Eliminamos el objeto
+        super().perform_destroy(instance)
+        #group = self.get_object()
+        LogEntry.objects.create(
+            user_id=self.request.user.id,
+            content_type_id=ContentType.objects.get_for_model(Group).pk,
+            object_id=group.id,
+            object_repr=str(group.name),
+            action_time=timezone.now(),
+            action_flag=3
+        )
+        #super().perform_delete(serializer)
 
 
 class LogEntryViewSet(viewsets.ModelViewSet):
