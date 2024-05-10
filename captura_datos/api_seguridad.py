@@ -15,6 +15,8 @@ from rest_framework_simplejwt.tokens import TokenError, AccessToken, RefreshToke
 from rest_framework.decorators import authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated,BasePermission, DjangoModelPermissions, DjangoObjectPermissions
 from rest_framework.authentication import TokenAuthentication
+
+from .authentication import CASAuthentication
 from django.http import HttpResponse
 from datetime import datetime
 from django.utils import timezone
@@ -80,8 +82,12 @@ class UserViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         #user = serializer.instance
         user = instance
+        descripcion= self.request.GET.get('descripcion', '')
+        if not descripcion:
+            return Response({'error': 'Proporcione una descripcion'}, status=status.HTTP_400_BAD_REQUEST)
         # Eliminamos el objeto
         super().perform_destroy(instance)
+        print(descripcion)
         LogEntry.objects.create(
             user_id=self.request.user.id,
             content_type_id=ContentType.objects.get_for_model(User).pk,
@@ -89,6 +95,7 @@ class UserViewSet(viewsets.ModelViewSet):
             object_repr=str(user.username),
             action_time=timezone.now(),
             action_flag=3,
+            change_message="Eliminar: "+ descripcion
             
         )
         #super().perform_delete(serializer)
@@ -250,8 +257,19 @@ class LogEntryViewSet(viewsets.ModelViewSet):
             user = User.objects.get(id=userid)
         except User.DoesNotExist:
             return Response({"error": "El usuario no existe"}, status=status.HTTP_404_NOT_FOUND)
-        
-        log_entries = LogEntry.objects.filter(user=user)
+        fecha_inicio_str = request.query_params.get('fecha_inicio', '')
+        fecha_fin_str = request.query_params.get('fecha_fin', '')
+        #######################
+        if fecha_inicio_str is None or fecha_fin_str is None:
+            return Response({'error': 'El Rango fecha es obligatorio'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+                fecha_inicio = datetime.strptime(fecha_inicio_str.strip(), '%Y-%m-%d').date()
+                fecha_fin = datetime.strptime(fecha_fin_str.strip(), '%Y-%m-%d').date()
+        except ValueError as e:
+                error_message = str(e)
+                print(error_message)
+                return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        log_entries = LogEntry.objects.filter(user=user,action_time__range=(fecha_inicio, fecha_fin))
         serializer = self.get_serializer(log_entries, many=True)
 
 
@@ -267,7 +285,7 @@ class LogEntryViewSet(viewsets.ModelViewSet):
  
         for log in serializer.data:
             fecha = None
-            print(log['content_type_name'])
+           
             if(log['action_time']):
              fecha = log['action_time'][:10] if log['action_time'] else ""
             writer.writerow([fecha, log['user_username'],log['content_type_name'],log['object_repr'],
@@ -277,6 +295,7 @@ class LogEntryViewSet(viewsets.ModelViewSet):
     
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def login(request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -342,3 +361,21 @@ def validateToken(request):
         return Response(token_data, status=status.HTTP_200_OK)
     except TokenError as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def loginCAS(request):
+       if request.method == 'POST':
+       
+        cas_backend = CASBackend()
+        user = cas_backend.authenticate(request)
+        if user is not None:
+            refresh_token = RefreshToken.for_user(user)
+            access_token = refresh_token.access_token
+            return Response( {
+            'user': user,
+            'refresh': str(refresh_token),
+            'token': str(access_token),
+        })
+        else:
+            return Response({'error': 'La autenticación CAS falló'}, status=401) 

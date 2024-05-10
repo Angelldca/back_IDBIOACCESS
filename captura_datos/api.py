@@ -164,7 +164,7 @@ class CiudadanoBashViewCapturaBiograficos(viewsets.ModelViewSet):
         estado_nuevo = Nestado.objects.get(idestado=2)
         ciudadano.idestado = estado_nuevo
         ciudadano.save()
-        print(request.data['descripcion'])
+
         LogEntry.objects.create(
             user_id=self.request.user.id,
             content_type_id=ContentType.objects.get_for_model(Dciudadanobash).pk,

@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'captura_datos',
     'rest_framework',
     'corsheaders',
+    'django_cas_ng'
 
 ]
 
@@ -54,6 +55,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django_cas_ng.middleware.CASMiddleware'
 ]
 
 ROOT_URLCONF = 'idbioaccess.urls'
@@ -158,13 +160,19 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 5,  # Número de elementos por página
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        # otras clases de autenticación, si las hay
     )
 }
-
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'django_cas_ng.backends.CASBackend',  # Add this line
+]
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=8),  # Tiempo de vida del token de acceso
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),     # Tiempo de vida del token de actualización
 }
 
+CAS_SERVER_URL = 'https://soa-cas.uci.cu/cas/'
+CAS_ADMIN_REDIRECT= False
+CAS_VERSION = '3'
