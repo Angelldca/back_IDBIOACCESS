@@ -43,7 +43,7 @@ class EstadoSerializer(serializers.ModelSerializer):
         model = Nestado
         fields = '__all__'
 class CiudadanoBashSerializer(serializers.ModelSerializer):
-    idestado = EstadoSerializer()
+    #idestado = EstadoSerializer()
     class Meta:
         model = Dciudadanobash
         fields = '__all__'
@@ -77,6 +77,8 @@ class LogEntrySerializer(serializers.ModelSerializer):
             change_message = obj.get_change_message()
             return change_message
         else:
+            if obj.get_change_message():
+                return obj.get_change_message()
             return "Eliminado"
 
 class GroupSerializer(serializers.ModelSerializer):

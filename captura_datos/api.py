@@ -1,4 +1,5 @@
-from .models import Dciudadanobash, Dimagenfacial, Dciudadano
+from .models import Dciudadanobash, Dimagenfacial, Dciudadano, Nestado
+from django.contrib.admin.models import LogEntry
 from django.db.models import Subquery
 from rest_framework import viewsets, permissions, generics, status
 from rest_framework.views import APIView
@@ -6,7 +7,8 @@ from django.db.utils import DataError
 from django.http import HttpResponse
 from rest_framework.decorators import action
 from django.db import connection
-
+from django.shortcuts import get_object_or_404
+from django.contrib.contenttypes.models import ContentType
 from rest_framework.decorators import authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated, DjangoModelPermissions
 from rest_framework.authentication import TokenAuthentication
@@ -25,9 +27,9 @@ import numpy as np
 import base64
 import csv
 import cv2
+import uuid
 import os
 from django.db.models import Q
-from datetime import datetime
 class CiudadanoPagination(PageNumberPagination):
      page_size_query_param = 10  # Número de elementos por páginas
      page_size =6
@@ -42,6 +44,63 @@ class CiudadanoBashViewCapturaBiograficos(viewsets.ModelViewSet):
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
         #self.imgP = ImgProcess()
+
+    def create(self, request):
+        id_persona = uuid.uuid4()
+        id_persona_str = str(id_persona).replace("-", "")
+        request.data['idpersona'] = id_persona_str
+        request.data['idestado'] = 3
+        request.data['fecha_registro_modificacion'] = timezone.now()
+        #request.data['area'] = timezone.now()
+        idexpediente = request.data['idexpediente']
+        carnetidentidad = request.data['carnetidentidad']
+        
+        ciudadano_existente = Dciudadanobash.objects.filter(
+            idexpediente=idexpediente,
+            carnetidentidad=carnetidentidad,
+            ).exists()
+        if not ciudadano_existente:
+            return Response("El ciudadano ya existe", status=status.HTTP_400_BAD_REQUEST)
+        serializer = CiudadanoBashSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def perform_update(self, serializer):
+        ciudadano_bash = serializer.instance
+        #self.request.data['fecha_registro_modificacion'] = timezone.now().date()
+        #serializer = CiudadanoBashSerializer(ciudadano_bash, data=self.request.data)
+        self.request.data['idestado'] = 1
+        
+        serializer.save(data=self.request.data ,fecha_registro_modificacion=timezone.now())
+        if serializer.is_valid():
+            
+            ciudadano = Dciudadano.objects.filter(
+            idpersona=ciudadano_bash.idpersona
+            ).exists()
+            if ciudadano:
+                ciudadano = Dciudadano.objects.get(idpersona=ciudadano_bash.idpersona)
+                ciudadano.area = serializer.validated_data.get('identificadorarea')
+                ciudadano.roluniversitario = serializer.validated_data.get('identificadorroluni')
+                ciudadano.fecha = timezone.now().date()
+                ciudadano.idpersona = serializer.validated_data.get('idpersona')
+                ciudadano.carnetidentidad = serializer.validated_data.get('carnetidentidad')
+                ciudadano.primernombre = serializer.validated_data.get('primernombre')
+                ciudadano.segundonombre = serializer.validated_data.get('segundonombre')
+                ciudadano.primerapellido = serializer.validated_data.get('primerapellido')
+                ciudadano.segundoapellido = serializer.validated_data.get('segundoapellido')
+                ciudadano.provincia = serializer.validated_data.get('provincia')
+                ciudadano.municipio = serializer.validated_data.get('municipio')
+                ciudadano.sexo = serializer.validated_data.get('sexo')
+                ciudadano.residente = serializer.validated_data.get('residente')
+                ciudadano.fechanacimiento = serializer.validated_data.get('fechanacimiento')
+                ciudadano.save()
+
+            
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     def list(self, request, *args, **kwargs):
         self.paginator.page_size = request.GET.get('page_size', self.paginator.page_size)
         
@@ -49,7 +108,7 @@ class CiudadanoBashViewCapturaBiograficos(viewsets.ModelViewSet):
         
         nuevo_diccionario = {clave: valor for clave, valor in atributo_valores.items() if clave != 'page'}
         query = Q()
-        self.queryset = Dciudadanobash.objects.all()
+        self.queryset = Dciudadanobash.objects.all().exclude(idestado=2)
         for atributo, valor in atributo_valores.items():
             print(atributo, valor)
             if atributo != 'page_size' and atributo != 'page':
@@ -76,7 +135,47 @@ class CiudadanoBashViewCapturaBiograficos(viewsets.ModelViewSet):
                 return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(self.queryset, many=True)
         return Response(serializer.data)
+    @action(detail=False, methods=["get"], name="ciudadanosbash_sin_img",url_path='ciudadanosbash_sin_img')
+    def list_sin_imagen(self, request, *args, **kwargs):
+        consulta_sql = """
+        SELECT * FROM public.dciudadanobash 
+        LEFT JOIN public.dciudadano ON public.dciudadano.idpersona = public.dciudadanobash.idpersona 
+        WHERE public.dciudadano.idpersona IS NULL;
+        """
+        ciudadanos_bash_sin_ciudadano = Dciudadanobash.objects.raw(consulta_sql)
+        
+        self.queryset = ciudadanos_bash_sin_ciudadano
+        self.paginator.page_size = request.GET.get('page_size', self.paginator.page_size)
+        page = self.paginate_queryset(self.queryset)
+        if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+        
+        
+        
+        serializer = self.get_serializer(self.queryset, many=True)
+        return Response(serializer.data)
 
+
+        #marcar ciudadanos inactivos
+    @action(detail=True, methods=['post'], name='make_estado_delete', url_path='make_estado_delete')
+    def make_estado_delete(self, request, pk=None):
+        ciudadano = get_object_or_404(Dciudadanobash, pk=pk)
+        estado_nuevo = Nestado.objects.get(idestado=2)
+        ciudadano.idestado = estado_nuevo
+        ciudadano.save()
+        print(request.data['descripcion'])
+        LogEntry.objects.create(
+            user_id=self.request.user.id,
+            content_type_id=ContentType.objects.get_for_model(Dciudadanobash).pk,
+            object_id=ciudadano.idpersona,
+            object_repr=str(ciudadano.primernombre),
+            action_time=timezone.now(),
+            action_flag=3,
+            change_message="Eliminar: "+ request.data['descripcion']
+        )
+        
+        return Response({'message': 'Estado del ciudadano cambiado satisfactoriamente'}, status=status.HTTP_200_OK)
 class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
     queryset = Dciudadano.objects.all()
     imagenFacial = Dimagenfacial.objects.all()
@@ -86,27 +185,42 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
         #self.imgP = ImgProcess()
-    def perform_create(self, serializer):
-        idexpediente = serializer.validated_data.get('idexpediente', None)
-        carnetidentidad = serializer.validated_data.get('carnetidentidad', None)
-        solapin = serializer.validated_data.get('solapin', None)
-        idpersona = serializer.validated_data.get('idpersona', None)
-
-        # Verificar si el ciudadano ya existe
+    def create(self, request):
+        idexpediente = request.data['idexpediente']
+        carnetidentidad = request.data['carnetidentidad']
+        solapin = request.data['solapin']
+        idpersona = request.data['idpersona']
+        fechanacimiento = datetime.strptime(request.data['fechanacimiento'] , '%Y-%m-%d').date()
+        
         if idexpediente or carnetidentidad or solapin or idpersona:
-           ciudadano_existente = Dciudadanobash.objects.filter(
+           
+           ciudadano_existente = Dciudadano.objects.filter(
             idexpediente=idexpediente,
             carnetidentidad=carnetidentidad,
             solapin=solapin,
             idpersona=idpersona
             ).exists()
 
-        if ciudadano_existente:
-            raise serializers.ValidationError('El ciudadano ya existe')
+           if ciudadano_existente:
+               
+                ciudadano = Dciudadano.objects.filter(
+                idexpediente=idexpediente,
+                carnetidentidad=carnetidentidad,
+                solapin=solapin,
+                idpersona=idpersona
+                ).first()
+                serializer = CiudadanoSerializer(ciudadano)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+           else:
+              serializer = self.serializer_class(data=request.data)
+              print("El ciudadano no existe")
+              if serializer.is_valid():
+                serializer.save(fecha=timezone.now().date(),fechanacimiento=fechanacimiento)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+              else: 
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "Faltan parámetros"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Continuar con la creación del ciudadano
-        
-        serializer.save(fecha=timezone.now().date())
 
     def perform_update(self, serializer):
         serializer.save(fecha=timezone.now().date())
@@ -343,17 +457,23 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
             solapin = ciudadano_data.get('solapin')
             carnetidentidad = ciudadano_data.get('carnetidentidad')
     
-            if not Dciudadano.objects.filter(idexpediente=idexpediente, solapin=solapin, carnetidentidad=carnetidentidad).exists():
+            if not Dciudadanobash.objects.filter(idexpediente=idexpediente, carnetidentidad=carnetidentidad).exists():
+                id_persona = uuid.uuid4()
+                id_persona_str = str(id_persona).replace("-", "")
+                ciudadano_data['idestado'] = 3
+                ciudadano_data['fecha_registro_modificacion'] = timezone.now()
+                ciudadano_data['idpersona'] = id_persona_str
                 nuevos_ciudadanos.append(ciudadano_data)
+            else :
+                return Response({'error':"El ciudadano con dni: "+ carnetidentidad + " ya existe"}, status=status.HTTP_400_BAD_REQUEST)
         # Validar los datos recibidos
-        serializer = CiudadanoSerializer(data=nuevos_ciudadanos, many=True)
-        serializer.is_valid(raise_exception=True)
+        serializer = CiudadanoBashSerializer(data=nuevos_ciudadanos, many=True)
+        if not serializer.is_valid():
+            return Response(serializer.error, status=status.HTTP_400_BAD_REQUEST)
 
         # Crear los ciudadanos en la base de datos
-        ciudadanos = serializer.save(fecha=timezone.now().date())
-
-        # Puedes retornar la lista de ciudadanos creados si es necesario
-        serializer_response = CiudadanoSerializer(ciudadanos, many=True)
+        ciudadanos = serializer.save()
+        serializer_response = CiudadanoBashSerializer(ciudadanos, many=True)
         return Response(serializer_response.data, status=status.HTTP_201_CREATED)
 #descargar planilla para importar ciudadanos
     @action(detail=False, methods=["get"], name="descargar_csv",url_path='descargar_csv')    

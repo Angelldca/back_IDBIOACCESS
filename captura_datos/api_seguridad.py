@@ -45,7 +45,7 @@ class UserViewSet(viewsets.ModelViewSet):
        user = serializer.instance
        LogEntry.objects.create(
             user_id=self.request.user.id,
-            content_type_id=ContentType.objects.get_for_model(User).pk,  # Obtener el ContentType para el modelo Group
+            content_type_id=ContentType.objects.get_for_model(User).pk,
             object_id=user.id,
             object_repr=str(user.username),
             action_time=timezone.now(),
@@ -88,7 +88,8 @@ class UserViewSet(viewsets.ModelViewSet):
             object_id=user.id,
             object_repr=str(user.username),
             action_time=timezone.now(),
-            action_flag=3
+            action_flag=3,
+            
         )
         #super().perform_delete(serializer)
 
@@ -209,6 +210,18 @@ class LogEntryViewSet(viewsets.ModelViewSet):
     def historial_usuario(self, request, pk=None):
         
         userid = request.query_params.get('userid', None)
+        fecha_inicio_str = request.query_params.get('fecha_inicio', '')
+        fecha_fin_str = request.query_params.get('fecha_fin', '')
+        #######################
+        if fecha_inicio_str is None or fecha_fin_str is None:
+            return Response({'error': 'El Rango fecha es obligatorio'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+                fecha_inicio = datetime.strptime(fecha_inicio_str.strip(), '%Y-%m-%d').date()
+                fecha_fin = datetime.strptime(fecha_fin_str.strip(), '%Y-%m-%d').date()
+        except ValueError as e:
+                error_message = str(e)
+                print(error_message)
+                return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
         if userid is None:
             return Response({"error": "Debes proporcionar un nombre de usuario"}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -217,7 +230,7 @@ class LogEntryViewSet(viewsets.ModelViewSet):
         except User.DoesNotExist:
             return Response({"error": "El usuario no existe"}, status=status.HTTP_404_NOT_FOUND)
         
-        log_entries = LogEntry.objects.filter(user=user)
+        log_entries = LogEntry.objects.filter(user=user,action_time__range=(fecha_inicio, fecha_fin))
         for log in log_entries:
             if(log.action_time):
              log.action_time = log.action_time.strftime('%d-%m-%Y %H:%M:%S')
