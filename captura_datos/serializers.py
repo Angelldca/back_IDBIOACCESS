@@ -130,3 +130,21 @@ class LoginSerializer(serializers.Serializer):
             'access': str(RefreshToken.for_user(user).access_token),
         }
 
+class LoginCasSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField()
+
+    def validate(self, attrs):
+        username = attrs.get('username')
+        password = attrs.get('password')
+
+        user = authenticate(username=username, password=password)
+
+        if not user:
+            raise serializers.ValidationError('No se encontró ningún usuario con estas credenciales')
+
+        return {
+            'user': user,
+            'refresh': str(RefreshToken.for_user(user)),
+            'access': str(RefreshToken.for_user(user).access_token),
+        }

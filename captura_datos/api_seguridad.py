@@ -15,8 +15,9 @@ from rest_framework_simplejwt.tokens import TokenError, AccessToken, RefreshToke
 from rest_framework.decorators import authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated,BasePermission, DjangoModelPermissions, DjangoObjectPermissions
 from rest_framework.authentication import TokenAuthentication
-
-from .authentication import CASAuthentication
+from django_cas_ng.backends import CASBackend
+from django_cas_ng import views as cas_views
+from .authentication import CustomCASBackend
 from django.http import HttpResponse
 from datetime import datetime
 from django.utils import timezone
@@ -26,9 +27,9 @@ import copy
 
 class CustomModelPermissions(DjangoModelPermissions):
     message = 'Usuario no autorizado'
-    def __init__(self):
-        self.perms_map = copy.deepcopy(self.perms_map)
-        self.perms_map['GET'] = ['%(app_label)s.view_%(model_name)s']
+    #def __init__(self):
+        #self.perms_map = copy.deepcopy(self.perms_map)
+        #self.perms_map['GET'] = ['%(app_label)s.view_%(model_name)s']
 
 
 
@@ -99,7 +100,38 @@ class UserViewSet(viewsets.ModelViewSet):
             
         )
         #super().perform_delete(serializer)
-
+    @action(detail=False, methods=["get"], name="user_id",url_path='user_id')
+    def user_id(self, request, pk=None):
+        user_id = request.query_params.get('id')
+        
+        # Intentar obtener el usuario según el ID recibido
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"message": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+        
+        user_serializer = UserSerializer(user)
+        user_info = {
+                    'id': user.id,
+                    'username': user.username,
+                    'is_superuser': user.is_superuser,
+                    'is_staff': user.is_staff,
+                    'is_active': user.is_active,
+                    # Obtener información completa de los roles y permisos
+                    'roles': [],
+                    'permissions': list(user.user_permissions.values_list('codename', flat=True))
+                }
+        for group in user.groups.all():
+                    role_info = {
+                        'id': group.id,
+                        'name': group.name,
+                        # Obtener los permisos asociados al rol
+                        'permissions': list(group.permissions.values_list('codename', flat=True))
+                    }
+                    user_info['roles'].append(role_info)
+        return Response({
+            'user': user_info,
+        }, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["get"], name="user_autenticados",url_path='user_autenticados')
     def user_autenticados(self, request, pk=None):
@@ -209,6 +241,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
 class LogEntryViewSet(viewsets.ModelViewSet):
     permission_classes=[IsAuthenticated,CustomModelPermissions]
+    
     queryset = LogEntry.objects.all()
     serializer_class = LogEntrySerializer
     pagination_class = None
@@ -326,6 +359,10 @@ def login(request):
         }, status=status.HTTP_200_OK)
 
 
+
+
+
+
 @api_view(['POST'])
 def register(request):
     serializer = UserSerializer(data=request.data)
@@ -348,6 +385,8 @@ def register(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+
+
 @api_view(['POST'])
 def validateToken(request):
     token = request.data.get('token')
@@ -363,19 +402,3 @@ def validateToken(request):
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-def loginCAS(request):
-       if request.method == 'POST':
-       
-        cas_backend = CASBackend()
-        user = cas_backend.authenticate(request)
-        if user is not None:
-            refresh_token = RefreshToken.for_user(user)
-            access_token = refresh_token.access_token
-            return Response( {
-            'user': user,
-            'refresh': str(refresh_token),
-            'token': str(access_token),
-        })
-        else:
-            return Response({'error': 'La autenticación CAS falló'}, status=401) 

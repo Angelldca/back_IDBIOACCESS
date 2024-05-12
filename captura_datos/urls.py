@@ -13,6 +13,7 @@ router.register('api/seguridad/permiso', PermissionViewSet, 'permisos' )
 router.register('api/seguridad/rol', GroupViewSet, 'roles' )
 router.register('api/seguridad/user', UserViewSet, 'user' )
 router.register('api/seguridad/trazas', LogEntryViewSet, 'trazas' )
+
 #router.register('api/segiridad/login', LoginAPIView, basename = 'login')
 
 

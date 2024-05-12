@@ -16,18 +16,21 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from captura_datos.api_seguridad import login, register, validateToken, loginCAS
+from captura_datos.api_seguridad import login, register, validateToken
 import django_cas_ng.views
-
+from captura_datos import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('captura_datos.urls')),
+    path('user_logeado', views.index, name='index'),
+    path('userinfo', views.get_user_info_2, name='userinfo'),
     path('api/seguridad/login/', login),
     path('api/seguridad/registrar/', register),
     path('api/seguridad/validatetoken/', validateToken),
-    #path('accounts/login',loginCAS),
-    path('accounts/login', django_cas_ng.views.LoginView.as_view(), name='cas_ng_login'),
-    path('accounts/logout', django_cas_ng.views.LogoutView.as_view(), name='cas_ng_logout'),
+    path('accounts/login/',views.CasLoginView.as_view(), name='logincas'),
+    #path('accounts/login', django_cas_ng.views.LoginView.as_view(), name='cas_ng_login'),
+    path('accounts/logout',django_cas_ng.views.LogoutView.as_view(), name='cas_ng_logout'),
+    
 ]
 

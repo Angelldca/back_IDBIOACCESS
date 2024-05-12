@@ -85,9 +85,9 @@ WSGI_APPLICATION = 'idbioaccess.wsgi.application'
 DATABASES = {
     'default': {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "db_prueba",
+        "NAME": "db_IDEBIOACCESS",
         "USER": "postgres",
-        "PASSWORD": "Angel4167*",
+        "PASSWORD": "1234",
         "HOST": "127.0.0.1",
         "PORT": "5432",
     }
@@ -144,6 +144,9 @@ CORS_ALLOWED_ORIGINS = [
 "http://127.0.0.1:*",
 ]
 CORS_ORIGIN_ALLOW_ALL = True
+
+
+
 CORS_ALLOW_HEADERS = [
 'accept',
 'accept-encoding',
@@ -159,20 +162,31 @@ CORS_ALLOW_HEADERS = [
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 5,  # Número de elementos por página
-    'DEFAULT_AUTHENTICATION_CLASSES': (
+    'DEFAULT_AUTHENTICATION_CLASSES': (    
         
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    ),
+    
 }
-AUTHENTICATION_BACKENDS = [
+AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
-    'django_cas_ng.backends.CASBackend',  # Add this line
-]
+    'django_cas_ng.backends.CASBackend',
+    
+)
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=8),  # Tiempo de vida del token de acceso
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),     # Tiempo de vida del token de actualización
 }
 
 CAS_SERVER_URL = 'https://soa-cas.uci.cu/cas/'
-CAS_ADMIN_REDIRECT= False
 CAS_VERSION = '3'
+CAS_REDIRECT_URL =  'http://localhost:4200/cas'
+CAS_LOGOUT_COMPLETELY = True
+CAS_IGNORE_REFERER = True
+CAS_APPLY_ATTRIBUTES_TO_USER=True
+CAS_CREATE_USER=True
+CAS_LOCAL_NAME_FIELD =True
+CAS_ALLOW_ALL_USERS= True
+###localhost:8000/accounts/login
+
