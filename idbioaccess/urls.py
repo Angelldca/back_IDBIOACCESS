@@ -23,8 +23,6 @@ from captura_datos import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('captura_datos.urls')),
-    path('user_logeado', views.index, name='index'),
-    path('userinfo', views.get_user_info_2, name='userinfo'),
     path('api/seguridad/login/', login),
     path('api/seguridad/registrar/', register),
     path('api/seguridad/validatetoken/', validateToken),

@@ -108,7 +108,7 @@ class CiudadanoBashViewCapturaBiograficos(viewsets.ModelViewSet):
         
         nuevo_diccionario = {clave: valor for clave, valor in atributo_valores.items() if clave != 'page'}
         query = Q()
-        self.queryset = Dciudadanobash.objects.all().exclude(idestado=2)
+        self.queryset = Dciudadanobash.objects.all().exclude(idestado=2).order_by('fecha_registro_modificacion')
         for atributo, valor in atributo_valores.items():
             print(atributo, valor)
             if atributo != 'page_size' and atributo != 'page':
@@ -143,8 +143,9 @@ class CiudadanoBashViewCapturaBiograficos(viewsets.ModelViewSet):
         WHERE public.dciudadano.idpersona IS NULL;
         """
         ciudadanos_bash_sin_ciudadano = Dciudadanobash.objects.raw(consulta_sql)
-        
-        self.queryset = ciudadanos_bash_sin_ciudadano
+        ids = [ciudadano.idpersona for ciudadano in ciudadanos_bash_sin_ciudadano]
+
+        self.queryset = Dciudadanobash.objects.filter(idpersona__in=ids).order_by('fecha_registro_modificacion')
         self.paginator.page_size = request.GET.get('page_size', self.paginator.page_size)
         page = self.paginate_queryset(self.queryset)
         if page is not None:
@@ -164,12 +165,13 @@ class CiudadanoBashViewCapturaBiograficos(viewsets.ModelViewSet):
         estado_nuevo = Nestado.objects.get(idestado=2)
         ciudadano.idestado = estado_nuevo
         ciudadano.save()
+        object_repr = f"{ciudadano.primernombre or ''} {ciudadano.segundonombre or ''} {ciudadano.primerapellido or ''} {ciudadano.segundoapellido or ''}"
 
         LogEntry.objects.create(
             user_id=self.request.user.id,
             content_type_id=ContentType.objects.get_for_model(Dciudadanobash).pk,
             object_id=ciudadano.idpersona,
-            object_repr=str(ciudadano.primernombre),
+            object_repr= object_repr,
             action_time=timezone.now(),
             action_flag=3,
             change_message="Eliminar: "+ request.data['descripcion']
@@ -233,7 +235,7 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
         
         nuevo_diccionario = {clave: valor for clave, valor in atributo_valores.items() if clave != 'page'}
         query = Q()
-        self.queryset = Dciudadano.objects.all()
+        self.queryset = Dciudadano.objects.exclude(idpersona__idestado=2).order_by('fecha')
         for atributo, valor in atributo_valores.items():
             
             if atributo != 'page_size' and atributo != 'page':
@@ -264,6 +266,7 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], name="ciudadanos_sin_img",url_path='ciudadanos_sin_img')
     def list_sin_imagen(self, request, *args, **kwargs):
         self.queryset = self.get_ciudadanos_sin_imagen()
+        self.queryset = self.queryset.exclude(idpersona__idestado=2).order_by('fecha')
         self.paginator.page_size = request.GET.get('page_size', self.paginator.page_size)
         atributo_valores = request.GET.dict()
         nuevo_diccionario = {clave: valor for clave, valor in atributo_valores.items() if clave != 'page' }
@@ -301,7 +304,9 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
     def get_ciudadanos_sin_imagen(self):
         subquery = Dimagenfacial.objects.values('idciudadano')
         # Obtener queryset de ciudadanos sin imagen
+
         ciudadanos_sin_imagen = Dciudadano.objects.exclude(idciudadano__in=Subquery(subquery))
+        #Dciudadano.objects.exclude(idciudadano__in=Subquery(subquery))
         return ciudadanos_sin_imagen
     #Listar ciudadanos creados por fecha
     @action(detail=False, methods=["get"], name="ciudadanos_rangoFecha",url_path='ciudadanos_rangoFecha')
@@ -320,6 +325,7 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
                 return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
          
          # Filtrar ciudadanos por el rango de fechas
+        self.queryset = self.queryset.exclude(idpersona__idestado=2).order_by('fecha')
         self.queryset = self.queryset.filter(fecha__range=(fecha_inicio, fecha_fin))
           
         page = self.paginate_queryset(self.queryset)
@@ -350,7 +356,7 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
             # Filtrar ciudadanos por el rango de fechas
         ciudadanos_con_imagen = Dimagenfacial.objects.filter(fecha_actualizacion__range=(fecha_inicio, fecha_fin)).values('idciudadano')
         self.queryset = Dciudadano.objects.filter(idciudadano__in=ciudadanos_con_imagen)
-
+        self.queryset = self.queryset.exclude(idpersona__idestado=2).order_by('fecha')
         page = self.paginate_queryset(self.queryset)
         if page is not None:
                 serializer = self.get_serializer(page, many=True)
@@ -500,7 +506,7 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
     @action(detail=False, methods=["get"], name="ciudadanos_entidad_csv",url_path='ciudadanos_entidad_csv')
     def listCiudadanosEntidad(self,request,pk= None):
         
-        ciudadanos = Dciudadano.objects.all()
+        ciudadanos = Dciudadano.objects.exclude(idpersona__idestado=2)
         response = HttpResponse(content_type ='text/csv')
         response['Content-Disposition'] = f'attachment; filename="ciudadanos_UCI.csv"'
 
@@ -531,7 +537,7 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
     @action(detail=False, methods=["get"], name="ciudadanos_fecha_csv",url_path='ciudadanos_fecha_csv')
     def listCiudadanosFecha(self,request,pk= None):
         
-        ciudadanos = Dciudadano.objects.all()
+        ciudadanos = Dciudadano.objects.exclude(idpersona__idestado=2)
         fecha_inicio_str = request.GET.get('fecha_inicio', '')
         fecha_fin_str = request.GET.get('fecha_fin', '')
         #######################
@@ -584,7 +590,7 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
         fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
         ciudadanos_con_imagen = Dimagenfacial.objects.filter(fecha_actualizacion__range=(fecha_inicio, fecha_fin)).values('idciudadano')
         ciudadanos = Dciudadano.objects.filter(idciudadano__in=ciudadanos_con_imagen)
-
+        ciudadanos = ciudadanos.exclude(idpersona__idestado=2)
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="ciudadanos_fecha_foto_csv.csv"'
 
@@ -619,6 +625,7 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
     def ciudadanossinImg(self, request):
         ciudadanos_con_imagen = Dimagenfacial.objects.values_list('idciudadano', flat=True)
         ciudadanos = Dciudadano.objects.exclude(idciudadano__in=ciudadanos_con_imagen)
+        ciudadanos = ciudadanos.exclude(idpersona__idestado=2).order_by('fecha')
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="ciudadanos_sin_fotos.csv"'
 

@@ -88,7 +88,7 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Proporcione una descripcion'}, status=status.HTTP_400_BAD_REQUEST)
         # Eliminamos el objeto
         super().perform_destroy(instance)
-        print(descripcion)
+        
         LogEntry.objects.create(
             user_id=self.request.user.id,
             content_type_id=ContentType.objects.get_for_model(User).pk,
@@ -137,7 +137,7 @@ class UserViewSet(viewsets.ModelViewSet):
     def user_autenticados(self, request, pk=None):
         
          # Filtrar ciudadanos por el rango de fechas
-        users = User.objects.all()
+        users = User.objects.exclude(last_login=None).order_by('-last_login')
         for usuario in users:
             if(usuario.last_login):
              usuario.last_login = usuario.last_login.strftime('%d-%m-%Y %H:%M:%S')

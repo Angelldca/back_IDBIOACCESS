@@ -85,9 +85,9 @@ WSGI_APPLICATION = 'idbioaccess.wsgi.application'
 DATABASES = {
     'default': {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "db_IDEBIOACCESS",
+        "NAME": "db_prueba",
         "USER": "postgres",
-        "PASSWORD": "1234",
+        "PASSWORD": "Angel4167*",
         "HOST": "127.0.0.1",
         "PORT": "5432",
     }
@@ -188,5 +188,6 @@ CAS_APPLY_ATTRIBUTES_TO_USER=True
 CAS_CREATE_USER=True
 CAS_LOCAL_NAME_FIELD =True
 CAS_ALLOW_ALL_USERS= True
+CAS_ADMIN_PREFIX = 'False'
 ###localhost:8000/accounts/login
 

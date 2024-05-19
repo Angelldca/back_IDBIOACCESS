@@ -24,6 +24,7 @@ class Dciudadano(models.Model):
 
     class Meta:
         db_table = 'dciudadano'
+        
     def __str__(self):
         return self.primernombre
 class Dcandidatos(models.Model):
