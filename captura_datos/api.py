@@ -17,11 +17,12 @@ from .serializers import CiudadanoSerializer, CiudadanoBashSerializer, Ciudadano
 from rest_framework.pagination import PageNumberPagination
 from .imgProcess import ImgProcess
 from rest_framework.response import Response
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.utils import timezone
 from io import TextIOWrapper
 from io import BytesIO
 import io
+import pytz
 from copy import copy
 import numpy as np
 import base64
@@ -59,7 +60,7 @@ class CiudadanoBashViewCapturaBiograficos(viewsets.ModelViewSet):
             idexpediente=idexpediente,
             carnetidentidad=carnetidentidad,
             ).exists()
-        if not ciudadano_existente:
+        if ciudadano_existente:
             return Response("El ciudadano ya existe", status=status.HTTP_400_BAD_REQUEST)
         serializer = CiudadanoBashSerializer(data=request.data)
         if serializer.is_valid():
@@ -319,12 +320,15 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
             return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-                fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-                fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+                fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d')
+                fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d')
         except ValueError:
                 return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
          
          # Filtrar ciudadanos por el rango de fechas
+        tz = pytz.timezone('UTC')  # Puedes ajustar 'UTC' a la zona horaria que prefieras
+        fecha_inicio = timezone.make_aware(fecha_inicio, tz)
+        fecha_fin = timezone.make_aware(fecha_fin + timedelta(days=1), tz)
         self.queryset = self.queryset.exclude(idpersona__idestado=2).order_by('fecha')
         self.queryset = self.queryset.filter(fecha__range=(fecha_inicio, fecha_fin))
           
@@ -349,11 +353,14 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
             return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-                fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-                fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+                fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d')
+                fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d')
         except ValueError:
                 return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
             # Filtrar ciudadanos por el rango de fechas
+        tz = pytz.timezone('UTC')  
+        fecha_inicio = timezone.make_aware(fecha_inicio, tz)
+        fecha_fin = timezone.make_aware(fecha_fin + timedelta(days=1), tz)
         ciudadanos_con_imagen = Dimagenfacial.objects.filter(fecha_actualizacion__range=(fecha_inicio, fecha_fin)).values('idciudadano')
         self.queryset = Dciudadano.objects.filter(idciudadano__in=ciudadanos_con_imagen)
         self.queryset = self.queryset.exclude(idpersona__idestado=2).order_by('fecha')
@@ -543,11 +550,14 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
         #######################
         if fecha_inicio_str and fecha_fin_str:
             try:
-                fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-                fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+                fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d')
+                fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d')
             except ValueError:
                 return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
             # Filtrar ciudadanos por el rango de fechas
+            tz = pytz.timezone('UTC')  
+            fecha_inicio = timezone.make_aware(fecha_inicio, tz)
+            fecha_fin = timezone.make_aware(fecha_fin + timedelta(days=1), tz)
             ciudadanos = ciudadanos.filter(fecha__range=(fecha_inicio, fecha_fin))
 
         response = HttpResponse(content_type='text/csv')
@@ -586,8 +596,11 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
         if fecha_inicio_str is None or fecha_fin_str is None:
             return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
         
-        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-        fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d')
+        fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d')
+        tz = pytz.timezone('UTC')  
+        fecha_inicio = timezone.make_aware(fecha_inicio, tz)
+        fecha_fin = timezone.make_aware(fecha_fin + timedelta(days=1), tz)
         ciudadanos_con_imagen = Dimagenfacial.objects.filter(fecha_actualizacion__range=(fecha_inicio, fecha_fin)).values('idciudadano')
         ciudadanos = Dciudadano.objects.filter(idciudadano__in=ciudadanos_con_imagen)
         ciudadanos = ciudadanos.exclude(idpersona__idestado=2)

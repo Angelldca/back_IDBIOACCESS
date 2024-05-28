@@ -19,11 +19,11 @@ from django_cas_ng.backends import CASBackend
 from django_cas_ng import views as cas_views
 from .authentication import CustomCASBackend
 from django.http import HttpResponse
-from datetime import datetime
+from datetime import datetime, timedelta, time
 from django.utils import timezone
 import csv
 import copy
-
+import pytz
 
 class CustomModelPermissions(DjangoModelPermissions):
     message = 'Usuario no autorizado'
@@ -151,7 +151,7 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], name="user_autenticados_csv",url_path='user_autenticados_csv')
     def user_autenticados_csv(self,request,pk= None):
         
-        users = User.objects.all()
+        users = User.objects.exclude(last_login=None).order_by('-last_login')
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="ciudadanos_creados_por_fecha.csv"'
 
@@ -256,8 +256,8 @@ class LogEntryViewSet(viewsets.ModelViewSet):
         if fecha_inicio_str is None or fecha_fin_str is None:
             return Response({'error': 'El Rango fecha es obligatorio'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-                fecha_inicio = datetime.strptime(fecha_inicio_str.strip(), '%Y-%m-%d').date()
-                fecha_fin = datetime.strptime(fecha_fin_str.strip(), '%Y-%m-%d').date()
+                fecha_inicio = datetime.strptime(fecha_inicio_str.strip(), '%Y-%m-%d')
+                fecha_fin = datetime.strptime(fecha_fin_str.strip(), '%Y-%m-%d')
         except ValueError as e:
                 error_message = str(e)
                 print(error_message)
@@ -269,7 +269,9 @@ class LogEntryViewSet(viewsets.ModelViewSet):
             user = User.objects.get(id=userid)
         except User.DoesNotExist:
             return Response({"error": "El usuario no existe"}, status=status.HTTP_404_NOT_FOUND)
-        
+        tz = pytz.timezone('UTC')  # Puedes ajustar 'UTC' a la zona horaria que prefieras
+        fecha_inicio = timezone.make_aware(fecha_inicio, tz)
+        fecha_fin = timezone.make_aware(fecha_fin + timedelta(days=1), tz)
         log_entries = LogEntry.objects.filter(user=user,action_time__range=(fecha_inicio, fecha_fin))
         for log in log_entries:
             if(log.action_time):
@@ -296,12 +298,15 @@ class LogEntryViewSet(viewsets.ModelViewSet):
         if fecha_inicio_str is None or fecha_fin_str is None:
             return Response({'error': 'El Rango fecha es obligatorio'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-                fecha_inicio = datetime.strptime(fecha_inicio_str.strip(), '%Y-%m-%d').date()
-                fecha_fin = datetime.strptime(fecha_fin_str.strip(), '%Y-%m-%d').date()
+                fecha_inicio = datetime.strptime(fecha_inicio_str.strip(), '%Y-%m-%d')
+                fecha_fin = datetime.strptime(fecha_fin_str.strip(), '%Y-%m-%d')
         except ValueError as e:
                 error_message = str(e)
                 print(error_message)
                 return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        tz = pytz.timezone('UTC')  # Puedes ajustar 'UTC' a la zona horaria que prefieras
+        fecha_inicio = timezone.make_aware(fecha_inicio, tz)
+        fecha_fin = timezone.make_aware(fecha_fin + timedelta(days=1), tz)
         log_entries = LogEntry.objects.filter(user=user,action_time__range=(fecha_inicio, fecha_fin))
         serializer = self.get_serializer(log_entries, many=True)
 

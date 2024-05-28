@@ -93,6 +93,13 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = '__all__'
+    def validate_email(self, value):
+        user = self.instance  # This will be None if it's a create request
+        if user is not None and user.email == value:
+            return value
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Este correo electrónico ya está en uso.")
+        return value
     def to_representation(self, instance):
         data = super().to_representation(instance)
         # Excluir el campo de contraseña si se está listando
