@@ -462,8 +462,16 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
             return Response({'error': f'Error al leer el archivo CSV: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
         
         nuevos_ciudadanos = []
+        carnetidentidad_list = [ciudadano.get('carnetidentidad') for ciudadano in ciudadanos_data]
+        idexpediente_list = [ciudadano.get('idexpediente') for ciudadano in ciudadanos_data]
+        
+        # Verificar duplicados dentro del mismo lote de datos enviados
+        if len(carnetidentidad_list) != len(set(carnetidentidad_list)):
+            return Response({'error': 'El registro contiene ciudadanos con carnet de identidad duplicados.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Validar y guardar los datos de los ciudadanos
+        if len(idexpediente_list) != len(set(idexpediente_list)):
+            return Response({'error': 'El registro contiene ciudadanos con expediente duplicados.'}, status=status.HTTP_400_BAD_REQUEST)
+        # Validar y guardar los datos de los ciudadanos
         for ciudadano_data in ciudadanos_data:
             # Verificar si el ciudadano ya existe
             idexpediente = ciudadano_data.get('idexpediente')
@@ -478,11 +486,11 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
                 ciudadano_data['idpersona'] = id_persona_str
                 nuevos_ciudadanos.append(ciudadano_data)
             else :
-                return Response({'error':"El ciudadano con dni: "+ carnetidentidad + " ya existe"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error':"El ciudadano con dni: "+ carnetidentidad +"o expediente: "+idexpediente+ " ya existe"}, status=status.HTTP_400_BAD_REQUEST)
         # Validar los datos recibidos
         serializer = CiudadanoBashSerializer(data=nuevos_ciudadanos, many=True)
         if not serializer.is_valid():
-            return Response(serializer.error, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Crear los ciudadanos en la base de datos
         ciudadanos = serializer.save()
@@ -492,7 +500,7 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
     @action(detail=False, methods=["get"], name="descargar_csv",url_path='descargar_csv')    
     def descargar_csv(self,request,pk= None):
     # Ruta del archivo CSV en tu proyecto
-        ruta_csv = './captura_datos/planilla_ciudadanos.csv'  # Reemplaza esto con la ruta correcta
+        ruta_csv = './captura_datos/plantilla_ciudadanos.csv'  # Reemplaza esto con la ruta correcta
     
         # Comprueba si el archivo existe
         if os.path.exists(ruta_csv):

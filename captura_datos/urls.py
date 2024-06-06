@@ -8,7 +8,7 @@ router.register('api/ciudadanobash', CiudadanoBashViewCapturaBiograficos, 'ciuda
 router.register('api/ciudadano', CiudadanoViewCapturaBiograficos, 'ciudadano' )
 router.register('api/img', CiudadanoImageViewCapturaBiometricos,'ciudadanos_img' )
 router.register('api/img/validate', CiudadanoImageProcessView,'validate_img' )
-router.register('api/ciudadanoscsv', CiudadanosCSVCreateView, 'ciudadanos_csv' )
+router.register('api/ciudadanoscsv', CiudadanosCSVCreateView, 'ciudadanoscsv' )
 router.register('api/seguridad/permiso', PermissionViewSet, 'permisos' )
 router.register('api/seguridad/rol', GroupViewSet, 'roles' )
 router.register('api/seguridad/user', UserViewSet, 'user' )
