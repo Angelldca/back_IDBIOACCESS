@@ -1,4 +1,4 @@
-from .models import Dciudadanobash, Dimagenfacial, Dciudadano, Nestado
+from .models import Dciudadanobash, Dimagenfacial, Dciudadano, Nestado, Dhuellaciudadano
 from django.contrib.admin.models import LogEntry
 from django.db.models import Subquery
 from rest_framework import viewsets, permissions, generics, status
@@ -309,6 +309,52 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
         ciudadanos_sin_imagen = Dciudadano.objects.exclude(idciudadano__in=Subquery(subquery))
         #Dciudadano.objects.exclude(idciudadano__in=Subquery(subquery))
         return ciudadanos_sin_imagen
+    # Ciudadanos sin captura de huella
+    @action(detail=False, methods=["get"], name="ciudadanos_sin_huella",url_path='ciudadanos_sin_huella')
+    def list_sin_huella(self, request, *args, **kwargs):
+        self.queryset = self.get_ciudadanos_sin_huella()
+        self.queryset = self.queryset.exclude(idpersona__idestado=2).order_by('fecha')
+        self.paginator.page_size = request.GET.get('page_size', self.paginator.page_size)
+        atributo_valores = request.GET.dict()
+        nuevo_diccionario = {clave: valor for clave, valor in atributo_valores.items() if clave != 'page' }
+        query = Q()
+        for atributo, valor in atributo_valores.items():
+            if atributo != 'page_size' and atributo != 'page' :
+                
+                if(atributo == 'nombre_apellidos'):
+                    
+                    palabras = valor.split()
+                    for palabra in palabras:
+                        self.queryset = self.queryset.filter(primernombre__icontains = palabra) | self.queryset.filter(segundonombre__icontains = palabra) | self.queryset.filter(primerapellido__icontains=palabra)| self.queryset.filter(segundoapellido__icontains=palabra)
+                    page = self.paginate_queryset(self.queryset)
+                    if page is not None:
+                        serializer = self.get_serializer(page, many=True)
+                        return self.get_paginated_response(serializer.data)
+                else:
+                    query &= Q(**{f'{atributo}': valor})
+                    
+       
+        if nuevo_diccionario:       
+            self.queryset = self.queryset.filter(query)
+            
+            
+        page = self.paginate_queryset(self.queryset)
+        if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+        
+        
+        
+        serializer = self.get_serializer(self.queryset, many=True)
+        return Response(serializer.data)
+
+    def get_ciudadanos_sin_huella(self):
+        subquery = Dhuellaciudadano.objects.values('idciudadano')
+        # Obtener queryset de ciudadanos sin imagen
+
+        ciudadanos_sin_imagen = Dciudadano.objects.exclude(idciudadano__in=Subquery(subquery))
+        #Dciudadano.objects.exclude(idciudadano__in=Subquery(subquery))
+        return ciudadanos_sin_imagen
     #Listar ciudadanos creados por fecha
     @action(detail=False, methods=["get"], name="ciudadanos_rangoFecha",url_path='ciudadanos_rangoFecha')
     def ciudadanos_rangoFecha(self, request, pk=None):
@@ -374,7 +420,6 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
         serializer = self.get_serializer(self.queryset, many=True)
         return Response(serializer.data)
 #Exportar registro csv de ciudadanos sin captura de imagen     
-
 
 class CiudadanoImageViewCapturaBiometricos(viewsets.ModelViewSet):
     queryset = Dimagenfacial.objects.all()
@@ -649,6 +694,36 @@ class CiudadanosCSVCreateView(viewsets.ViewSet):
         ciudadanos = ciudadanos.exclude(idpersona__idestado=2).order_by('fecha')
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="ciudadanos_sin_fotos.csv"'
+
+        # Creamos el escritor CSV
+        writer = csv.writer(response)
+
+ 
+        writer.writerow(['ID', 'Primer Nombre','Segundo Nombre','Primer Apellido', 'Segundo Apellido',
+         'DNI', 'Solapin','Area','Rol Institucional',
+         'Fecha de nacimiento','Expediente','Provincia','Municipio','Sexo','Residente'])
+
+  
+        for ciudadano in ciudadanos:
+            fecha_nacimiento = None
+            if(ciudadano.fechanacimiento):
+             fecha_nacimiento = ciudadano.fechanacimiento.strftime('%d-%m-%Y')
+            writer.writerow([ciudadano.idciudadano, ciudadano.primernombre,ciudadano.segundonombre,
+            ciudadano.primerapellido, ciudadano.segundoapellido,
+             ciudadano.carnetidentidad,ciudadano.solapin,ciudadano.area,ciudadano.roluniversitario,
+             fecha_nacimiento,ciudadano.idexpediente,ciudadano.provincia,
+             ciudadano.municipio,ciudadano.sexo,ciudadano.residente ])
+
+        return response
+
+    #Descargar lista de ciudadanos sin captura de huellas en csv
+    @action(detail=False, methods=["get"], name="ciudadanossinhuellas_csv",url_path='ciudadanossinhuellas_csv')
+    def ciudadanosSinHuellas(self, request):
+        ciudadanos_con_huella = Dhuellaciudadano.objects.values_list('idciudadano', flat=True)
+        ciudadanos = Dciudadano.objects.exclude(idciudadano__in=ciudadanos_con_huella)
+        ciudadanos = ciudadanos.exclude(idpersona__idestado=2).order_by('fecha')
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="ciudadanos_sin_huella.csv"'
 
         # Creamos el escritor CSV
         writer = csv.writer(response)
