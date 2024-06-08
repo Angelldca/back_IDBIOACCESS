@@ -2,7 +2,7 @@ from rest_framework import routers
 from django.urls import path
 from .api import CiudadanoViewCapturaBiograficos,CiudadanoImageProcessView, CiudadanosCSVCreateView, CiudadanoImageViewCapturaBiometricos, CiudadanoBashViewCapturaBiograficos
 from .api_seguridad import PermissionViewSet, GroupViewSet, UserViewSet,LogEntryViewSet
-from .api_gestion import CiudadanosSinSolapinList, CiudadanosConSolapinList
+from .api_gestion import CiudadanosSinSolapinList, CiudadanosConSolapinList, SolapinViewSet
 
 router = routers.DefaultRouter()
 router.register('api/ciudadanobash', CiudadanoBashViewCapturaBiograficos, 'ciudadanobash' )
@@ -16,6 +16,7 @@ router.register('api/seguridad/user', UserViewSet, 'user' )
 router.register('api/seguridad/trazas', LogEntryViewSet, 'trazas' )
 router.register('api/ciudadanoss', CiudadanosSinSolapinList, 'ciudadanoss')
 router.register('api/ciudadanocs', CiudadanosConSolapinList, 'ciudadanocs')
+router.register('api/solapin', SolapinViewSet, 'solapin')
 
 #router.register('api/segiridad/login', LoginAPIView, basename = 'login')
 
