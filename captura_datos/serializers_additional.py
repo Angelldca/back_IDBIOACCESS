@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Dsolapin, Dciudadanosolapin
+from .models import Dsolapin, Dciudadanosolapin, Ntiposolapin
 
 class SolapinSerializer(serializers.ModelSerializer):
     class Meta:
@@ -25,3 +25,8 @@ class SerialSerializer(serializers.ModelSerializer):
     class Meta:
         model = Dsolapin
         fields = ['serial']
+        
+class TipoSolapinSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ntiposolapin
+        fields = '__all__'

@@ -1,6 +1,6 @@
-from .models import Dciudadano, Dciudadanosolapin, Dsolapin
+from .models import Dciudadano, Dciudadanosolapin, Dsolapin, Ntiposolapin
 from .serializers import CiudadanoSerializer
-from .serializers_additional import SolapinSerializer, CiudadanoSolapinSerializer, CodigobarraSerializer, NumerosolapinSerializer, SerialSerializer
+from .serializers_additional import SolapinSerializer, TipoSolapinSerializer, CiudadanoSolapinSerializer, CodigobarraSerializer, NumerosolapinSerializer, SerialSerializer
 from rest_framework import viewsets, status, filters
 from django.db.models import Q
 from rest_framework.decorators import action
@@ -25,7 +25,6 @@ class CiudadanosConSolapinList(viewsets.ModelViewSet):
             idciudadano__in=Dciudadanosolapin.objects.values('idciudadano')
         )
         
-
 class SolapinViewSet(viewsets.ModelViewSet):
     serializer_class = SolapinSerializer
     queryset = Dsolapin.objects.all()
@@ -115,3 +114,8 @@ class SolapinViewSet(viewsets.ModelViewSet):
             serializer = SerialSerializer(solapin)
             return Response(serializer.data)
         return Response({'error': 'No data found'}, status=404)
+    
+class TipoSolapinViewSet (viewsets.ModelViewSet):
+    serializer_class = TipoSolapinSerializer
+    def get_queryset(self):
+        return Ntiposolapin.objects.all()
