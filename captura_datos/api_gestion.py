@@ -1,6 +1,6 @@
-from .models import Dciudadano, Dciudadanobash, Dciudadanosolapin, Dsolapin, Ntiposolapin
+from .models import Dciudadano, Dciudadanobash, Dciudadanosolapin, Dsolapin, Ntiposolapin, Ncausaanulacion
 from .serializers import CiudadanoSerializer, CiudadanoBashSerializer
-from .serializers_additional import SolapinSerializer, TipoSolapinSerializer, CiudadanoSolapinSerializer, CodigobarraSerializer, NumerosolapinSerializer, SerialSerializer
+from .serializers_additional import SolapinSerializer, TipoSolapinSerializer, CausaAnulacionSerializer, CodigobarraSerializer, NumerosolapinSerializer, SerialSerializer
 from rest_framework import viewsets, status, filters
 from django.db.models import Q
 from rest_framework.decorators import action
@@ -31,7 +31,7 @@ class SolapinViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['numerosolapin']
     
-    # Gestion Solapines
+    ############################### CREAR SOLAPIN ###############################################
     @action(detail=False, methods=['post'])
     @transaction.atomic
     def create_solapin(self, request):
@@ -71,29 +71,59 @@ class SolapinViewSet(viewsets.ModelViewSet):
             transaction.set_rollback(True)
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['delete'])
+    ############################# ELIMINAR SOLAPIN ############################################
+    @action(detail=False, methods=['delete'])
     @transaction.atomic
-    def delete_solapin(self, request, pk=None):
+    def delete_solapin(self, request):
+        data = request.data
         try:
-            # Obtener el solapin y la asociación con el ciudadano
-            solapin = self.get_object()
+            solapin = Dsolapin.objects.get(numerosolapin=data.get('numerosolapin'))
             ciudadano_solapin = Dciudadanosolapin.objects.get(idsolapin=solapin)
+            ciudadano = Dciudadano.objects.get(solapin=solapin.numerosolapin)
+            ciudadanobash = Dciudadanobash.objects.filter(idpersona=ciudadano.idpersona.idpersona).first()
             
-            # Eliminar la relación y el solapin
+            ciudadano.solapin = None
+            ciudadano.save()
+            
+            ciudadanobash.solapin = None
+            ciudadanobash.save()
+            
             ciudadano_solapin.delete()
             solapin.delete()
             
             return Response(status=status.HTTP_204_NO_CONTENT)
         
+        except Dsolapin.DoesNotExist:
+            return Response({'error': 'Solapin not found'}, status=status.HTTP_404_NOT_FOUND)
         except Dciudadanosolapin.DoesNotExist:
             return Response({'error': 'Association not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             transaction.set_rollback(True)
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
+    ########################### ACTUALIZAR SOLAPIN ############################################
+    @action(detail=False, methods=['put'])
+    @transaction.atomic
+    def update_solapin(self, request):
+        data = request.data
+        try:
+            solapin = Dsolapin.objects.get(numerosolapin=data.get('numerosolapin'))
+
+            solapin_serializer = SolapinSerializer(solapin, data=data, partial=True)
+            if solapin_serializer.is_valid():
+                solapin_serializer.save()
+                
+                return Response(solapin_serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response(solapin_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Dsolapin.DoesNotExist:
+            return Response({'error': 'Solapin not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            transaction.set_rollback(True)
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
-    
-    # Funciones Adicionales de Generacion de Solapin
+    ######################### FUNCIONES ADICIONALES ###############################################3
     @action(detail=False, methods=['get'])
     def ultimo_codigobarra(self, request):
         solapin = Dsolapin.objects.annotate(
@@ -129,3 +159,9 @@ class TipoSolapinViewSet (viewsets.ModelViewSet):
     serializer_class = TipoSolapinSerializer
     def get_queryset(self):
         return Ntiposolapin.objects.all()
+    
+class CausaAnulacionViewSet (viewsets.ModelViewSet):
+    pagination_class = None
+    serializer_class = CausaAnulacionSerializer
+    def get_queryset(self):
+        return Ncausaanulacion.objects.all()
