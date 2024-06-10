@@ -1,5 +1,5 @@
-from .models import Dciudadano, Dciudadanosolapin, Dsolapin, Ntiposolapin
-from .serializers import CiudadanoSerializer
+from .models import Dciudadano, Dciudadanobash, Dciudadanosolapin, Dsolapin, Ntiposolapin
+from .serializers import CiudadanoSerializer, CiudadanoBashSerializer
 from .serializers_additional import SolapinSerializer, TipoSolapinSerializer, CiudadanoSolapinSerializer, CodigobarraSerializer, NumerosolapinSerializer, SerialSerializer
 from rest_framework import viewsets, status, filters
 from django.db.models import Q
@@ -39,7 +39,8 @@ class SolapinViewSet(viewsets.ModelViewSet):
         try:
             # Validar si el ciudadano ya existe
             ciudadano = Dciudadano.objects.get(idciudadano=data.get('idciudadano'))
-
+            ciudadanobash = Dciudadanobash.objects.filter(idpersona=ciudadano.idpersona.idpersona).first()
+            
             # Crear el solapin
             solapin_serializer = SolapinSerializer(data=data)
             if solapin_serializer.is_valid():
@@ -52,12 +53,20 @@ class SolapinViewSet(viewsets.ModelViewSet):
                     fecha=data.get('fecha')
                 )
                 
+                ciudadano.solapin = data['numerosolapin']
+                ciudadano.save()
+                
+                ciudadanobash.solapin = data['numerosolapin']
+                ciudadanobash.save()
+                
                 return Response(solapin_serializer.data, status=status.HTTP_201_CREATED)
             else:
                 return Response(solapin_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         except Dciudadano.DoesNotExist:
-            return Response({'error': 'Citizen not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Ciudadano not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Dciudadanobash.DoesNotExist:
+            return Response({'error': 'Ciudadano Bash not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             transaction.set_rollback(True)
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -116,6 +125,7 @@ class SolapinViewSet(viewsets.ModelViewSet):
         return Response({'error': 'No data found'}, status=404)
     
 class TipoSolapinViewSet (viewsets.ModelViewSet):
+    pagination_class = None
     serializer_class = TipoSolapinSerializer
     def get_queryset(self):
         return Ntiposolapin.objects.all()
