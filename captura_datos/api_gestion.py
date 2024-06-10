@@ -17,6 +17,38 @@ class CiudadanosSinSolapinList(viewsets.ModelViewSet):
             ~Q(idciudadano__in=Dciudadanosolapin.objects.values('idciudadano'))
         )
 
+    def list(self, request, *args, **kwargs):
+        self.paginator.page_size = request.GET.get('page_size', self.paginator.page_size)
+        atributo_valores = request.GET.dict()
+        query = Q()
+
+        self.queryset = self.get_queryset()
+
+        for atributo, valor in atributo_valores.items():
+            if atributo != 'page_size' and atributo != 'page':
+                if atributo == 'nombre_apellidos':
+                    palabras = valor.split()
+                    for palabra in palabras:
+                        query |= (
+                            Q(primernombre__icontains=palabra) |
+                            Q(segundonombre__icontains=palabra) |
+                            Q(primerapellido__icontains=palabra) |
+                            Q(segundoapellido__icontains=palabra)
+                        )
+                else:
+                    query |= Q(**{f'{atributo}__icontains': valor})
+        
+        if query:
+            self.queryset = self.queryset.filter(query)
+        
+        page = self.paginate_queryset(self.queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(self.queryset, many=True)
+        return Response(serializer.data)
+
 class CiudadanosConSolapinList(viewsets.ModelViewSet):
     serializer_class = CiudadanoSerializer
 
@@ -24,6 +56,38 @@ class CiudadanosConSolapinList(viewsets.ModelViewSet):
         return Dciudadano.objects.filter(
             idciudadano__in=Dciudadanosolapin.objects.values('idciudadano')
         )
+
+    def list(self, request, *args, **kwargs):
+        self.paginator.page_size = request.GET.get('page_size', self.paginator.page_size)
+        atributo_valores = request.GET.dict()
+        query = Q()
+
+        self.queryset = self.get_queryset()
+
+        for atributo, valor in atributo_valores.items():
+            if atributo != 'page_size' and atributo != 'page':
+                if atributo == 'nombre_apellidos':
+                    palabras = valor.split()
+                    for palabra in palabras:
+                        query |= (
+                            Q(primernombre__icontains=palabra) |
+                            Q(segundonombre__icontains=palabra) |
+                            Q(primerapellido__icontains=palabra) |
+                            Q(segundoapellido__icontains=palabra)
+                        )
+                else:
+                    query |= Q(**{f'{atributo}__icontains': valor})
+        
+        if query:
+            self.queryset = self.queryset.filter(query)
+        
+        page = self.paginate_queryset(self.queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(self.queryset, many=True)
+        return Response(serializer.data)
         
 class SolapinViewSet(viewsets.ModelViewSet):
     serializer_class = SolapinSerializer
