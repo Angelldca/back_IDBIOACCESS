@@ -95,6 +95,16 @@ class SolapinViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['numerosolapin']
     
+    ################ BUSCAR EL SOLAPIN ######################################################
+    @action(detail=False, methods=['post'])
+    def get_solapin_by_numero(self, request):
+        numerosolapin = request.data.get('numerosolapin')
+        try:
+            solapin = Dsolapin.objects.get(numerosolapin=numerosolapin)
+            serializer = self.get_serializer(solapin)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Dsolapin.DoesNotExist:
+            return Response({'error': 'Solapin not found'}, status=status.HTTP_404_NOT_FOUND)
     ############################### CREAR SOLAPIN ###############################################
     @action(detail=False, methods=['post'])
     @transaction.atomic
