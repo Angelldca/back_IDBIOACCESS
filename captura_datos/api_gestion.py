@@ -1,6 +1,8 @@
-from .models import Dciudadano, Dciudadanobash, Dciudadanosolapin, Dsolapin, Ntiposolapin, Ncausaanulacion
+from .models import Dciudadano, Dciudadanobash, Dciudadanosolapin, Dsolapin, Dregistropago, Ntiposolapin, Ncausaanulacion
+from .models import Dciudadanosolapinhist, Dnewsolapinhistorico, Doperacionsolapin, Ntipooperacionsolapin
 from .serializers import CiudadanoSerializer, CiudadanoBashSerializer
-from .serializers_additional import SolapinSerializer, TipoSolapinSerializer, CausaAnulacionSerializer, CodigobarraSerializer, NumerosolapinSerializer, SerialSerializer
+from .serializers_additional import RegistroPagoSerializer, SolapinSerializer, TipoSolapinSerializer, CausaAnulacionSerializer, CodigobarraSerializer, NumerosolapinSerializer, SerialSerializer
+from .serializers_additional import CiudadanoSolapinHistSerializer, NewSolapinHistSerializer, OperacionSolapinSerializer, TipoOperacionSolapinSerializer
 from rest_framework import viewsets, status, filters
 from django.db.models import Q
 from rest_framework.decorators import action
@@ -327,3 +329,30 @@ class CausaAnulacionViewSet (viewsets.ModelViewSet):
     serializer_class = CausaAnulacionSerializer
     def get_queryset(self):
         return Ncausaanulacion.objects.all()
+    
+###################### REGISTRO PAGOS ###########################################33
+
+class RegistroPagoViewSet(viewsets.ModelViewSet):
+    pagination_class = None
+    queryset = Dregistropago.objects.all()
+    serializer_class = RegistroPagoSerializer
+    
+class CiudadanoSolapinHistViewSet(viewsets.ModelViewSet):
+    pagination_class = None
+    queryset = Dciudadanosolapinhist.objects.all()
+    serializer_class = CiudadanoSolapinHistSerializer
+
+class NewSolapinHistViewSet(viewsets.ModelViewSet):
+    pagination_class = None
+    queryset = Dnewsolapinhistorico.objects.all()
+    serializer_class = NewSolapinHistSerializer
+    
+class OperacionSolapinViewSet(viewsets.ModelViewSet):
+    pagination_class = None
+    queryset = Doperacionsolapin.objects.all()
+    serializer_class = OperacionSolapinSerializer
+    
+class TipoOperacionSolapinViewSet(viewsets.ModelViewSet):
+    pagination_class = None
+    queryset = Ntipooperacionsolapin.objects.all()
+    serializer_class = TipoOperacionSolapinSerializer

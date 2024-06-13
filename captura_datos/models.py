@@ -1,8 +1,5 @@
 from django.db import models
 
-
-
-
 class Dciudadano(models.Model):
     idciudadano = models.AutoField(primary_key=True)
     area = models.CharField(max_length=150, blank=True, null=True)
@@ -313,7 +310,20 @@ class Dusuariopermiso(models.Model):
     class Meta:
         db_table = 'dusuariopermiso'
         unique_together = (('idusuario', 'idtipopermiso'),)
-
+        
+class Dregistropago(models.Model):
+    idregistropago = models.AutoField(primary_key=True)
+    idciudadano = models.ForeignKey(Dciudadano, models.DO_NOTHING, db_column='idciudadano', blank=True, null=True)
+    idsolapin = models.ForeignKey(Dsolapin, models.DO_NOTHING, db_column='idsolapin', blank=True, null=True)
+    idusuario = models.IntegerField(blank=True, null=True)
+    idcausaanulacion = models.ForeignKey('Ncausaanulacion', models.DO_NOTHING, db_column='identificadoranulacion')
+    monto = models.IntegerField(blank=True, null=True)
+    tipopago = models.CharField(max_length=255, blank=True, null=True)
+    idtransferencia = models.CharField(max_length=255, blank=True, null=True)
+    fecha = models.DateTimeField()
+    
+    class Meta:
+        db_table = 'dregistropago'
 
 class ExtradateTemp(models.Model):
     carnetidentidad = models.CharField(max_length=255, blank=True, null=True)

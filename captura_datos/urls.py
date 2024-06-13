@@ -2,7 +2,8 @@ from rest_framework import routers
 from django.urls import path
 from .api import CiudadanoViewCapturaBiograficos,CiudadanoImageProcessView, CiudadanosCSVCreateView, CiudadanoImageViewCapturaBiometricos, CiudadanoBashViewCapturaBiograficos
 from .api_seguridad import PermissionViewSet, GroupViewSet, UserViewSet,LogEntryViewSet
-from .api_gestion import CiudadanosSinSolapinList, CiudadanosConSolapinList, CiudadanosSolapinDesactivadoList, SolapinViewSet, TipoSolapinViewSet, CausaAnulacionViewSet
+from .api_gestion import CiudadanosSinSolapinList, CiudadanosConSolapinList, CiudadanosSolapinDesactivadoList, SolapinViewSet, TipoSolapinViewSet, CausaAnulacionViewSet, RegistroPagoViewSet
+from .api_gestion import CiudadanoSolapinHistViewSet, NewSolapinHistViewSet, OperacionSolapinViewSet, TipoOperacionSolapinViewSet
 
 router = routers.DefaultRouter()
 router.register('api/ciudadanobash', CiudadanoBashViewCapturaBiograficos, 'ciudadanobash' )
@@ -20,6 +21,11 @@ router.register('api/ciudadanoas', CiudadanosSolapinDesactivadoList, 'ciudadanoa
 router.register('api/solapin', SolapinViewSet, 'solapin')
 router.register('api/tiposolapin', TipoSolapinViewSet, 'tiposolapin')
 router.register('api/causaanulacion', CausaAnulacionViewSet, 'causaanulacion')
+router.register('api/registropago', RegistroPagoViewSet, 'registropago')
+router.register('api/ciudadanosolapinhist', CiudadanoSolapinHistViewSet, 'ciudadanosolapinhist')
+router.register('api/newsolapinhist', NewSolapinHistViewSet, 'newsolapinhist')
+router.register('api/operacionsolapin', OperacionSolapinViewSet, 'operacionsolapin')
+router.register('api/tipooperacionsolapin', TipoOperacionSolapinViewSet, 'tipooperacionsolapin')
 
 #router.register('api/segiridad/login', LoginAPIView, basename = 'login')
 
