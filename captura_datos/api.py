@@ -33,7 +33,7 @@ import os
 from django.db.models import Q
 class CiudadanoPagination(PageNumberPagination):
      page_size_query_param = 10  # Número de elementos por páginas
-     page_size =6
+     page_size = 6
 
 
 

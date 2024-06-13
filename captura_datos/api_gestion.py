@@ -8,10 +8,12 @@ from rest_framework.response import Response
 from django.db.models.functions import Cast, Substr
 from django.db.models import IntegerField
 from django.db import transaction
+from .api import CiudadanoPagination
 
+################### LISTADO DE CIUDADANOS SIN SOLAPIN #########################################
 class CiudadanosSinSolapinList(viewsets.ModelViewSet):
     serializer_class = CiudadanoSerializer
-
+    pagination_class = CiudadanoPagination
     def get_queryset(self):
         return Dciudadano.objects.filter(
             ~Q(idciudadano__in=Dciudadanosolapin.objects.values('idciudadano'))
@@ -49,8 +51,11 @@ class CiudadanosSinSolapinList(viewsets.ModelViewSet):
         serializer = self.get_serializer(self.queryset, many=True)
         return Response(serializer.data)
 
+
+########################## LISTADO DE CIUDADANOS CON SOLAPIN ####################################
 class CiudadanosConSolapinList(viewsets.ModelViewSet):
     serializer_class = CiudadanoSerializer
+    pagination_class = CiudadanoPagination
 
     def get_queryset(self):
         return Dciudadano.objects.filter(
@@ -88,7 +93,56 @@ class CiudadanosConSolapinList(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(self.queryset, many=True)
         return Response(serializer.data)
+
+######################### LISTADO DE CIUDADANOS CON SOLAPIN DESACTIVADO ###################
+class CiudadanosSolapinDesactivadoList(viewsets.ModelViewSet):
+    serializer_class = CiudadanoSerializer
+    pagination_class = CiudadanoPagination
+
+    def get_queryset(self):
+        # Filtrar los ciudadanos cuyo solapín asociado tiene el estado 0
+        solapines_estado_cero = Dsolapin.objects.filter(estado=0).values('idsolapin')
+        return Dciudadano.objects.filter(
+            idciudadano__in=Dciudadanosolapin.objects.filter(idsolapin__in=solapines_estado_cero).values('idciudadano')
+        )
+
+    def list(self, request, *args, **kwargs):
+        # Mantener la lógica de paginación existente
+        self.paginator.page_size = request.GET.get('page_size', self.paginator.page_size)
+        atributo_valores = request.GET.dict()
+        query = Q()
+
+        self.queryset = self.get_queryset()
+
+        # Mantener la lógica de filtrado existente
+        for atributo, valor in atributo_valores.items():
+            if atributo != 'page_size' and atributo != 'page':
+                if atributo == 'nombre_apellidos':
+                    palabras = valor.split()
+                    for palabra in palabras:
+                        query |= (
+                            Q(primernombre__icontains=palabra) |
+                            Q(segundonombre__icontains=palabra) |
+                            Q(primerapellido__icontains=palabra) |
+                            Q(segundoapellido__icontains=palabra)
+                        )
+                else:
+                    query |= Q(**{f'{atributo}__icontains': valor})
         
+        if query:
+            self.queryset = self.queryset.filter(query)
+        
+        # Paginación y respuesta
+        page = self.paginate_queryset(self.queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(self.queryset, many=True)
+        return Response(serializer.data)
+
+
+########################## VISTAS SOLAPIN #################################################
 class SolapinViewSet(viewsets.ModelViewSet):
     serializer_class = SolapinSerializer
     queryset = Dsolapin.objects.all()
@@ -126,10 +180,9 @@ class SolapinViewSet(viewsets.ModelViewSet):
                     idsolapin=solapin,
                     fecha=data.get('fecha')
                 )
-                
+                      
                 ciudadano.solapin = data['numerosolapin']
                 ciudadano.save()
-                
                 ciudadanobash.solapin = data['numerosolapin']
                 ciudadanobash.save()
                 
@@ -182,6 +235,37 @@ class SolapinViewSet(viewsets.ModelViewSet):
         data = request.data
         try:
             solapin = Dsolapin.objects.get(numerosolapin=data.get('numerosolapin'))
+            
+            try:
+                nuevo = data['nuevonumerosolapin']
+            except Exception:
+                nuevo = solapin.numerosolapin
+                
+            ciudadano_solapin = Dciudadanosolapin.objects.get(idsolapin=solapin.idsolapin)
+            
+            try:
+                ciudadano = Dciudadano.objects.get(solapin=solapin.numerosolapin)
+            except Dciudadano.DoesNotExist:
+                try:
+                    ciudadano = Dciudadano.objects.get(idciudadano=ciudadano_solapin.idciudadano)
+                except Dciudadano.DoesNotExist:
+                    return Response({'error': 'Solapin no encontrado para este ciudadano, imposible actualizar'}, status=status.HTTP_404_NOT_FOUND)
+            
+            try:
+                ciudadanobash = Dciudadanobash.objects.filter(solapin=solapin.numerosolapin).first()  
+            except Dciudadanobash.DoesNotExist:
+                try:
+                    ciudadanobash = Dciudadanobash.objects.filter(idpersona=ciudadano.idpersona.idpersona).first()
+                except Dciudadanobash.DoesNotExist:
+                    return Response({'error': 'Solapin no encontrado para este ciudadano bash, imposible actualizar'}, status=status.HTTP_404_NOT_FOUND)
+            
+            ciudadano.solapin = nuevo
+            ciudadano.save()
+            
+            ciudadanobash.solapin = nuevo
+            ciudadanobash.save()
+            
+            data['numerosolapin'] = nuevo
 
             solapin_serializer = SolapinSerializer(solapin, data=data, partial=True)
             if solapin_serializer.is_valid():
@@ -193,6 +277,10 @@ class SolapinViewSet(viewsets.ModelViewSet):
 
         except Dsolapin.DoesNotExist:
             return Response({'error': 'Solapin not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Dciudadano.DoesNotExist:
+            return Response({'error': 'Ciudadano not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Dciudadanobash.DoesNotExist:
+            return Response({'error': 'Ciudadano bash not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             transaction.set_rollback(True)
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
