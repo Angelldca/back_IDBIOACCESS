@@ -260,17 +260,17 @@ class SolapinViewSet(viewsets.ModelViewSet):
                 except Dciudadanobash.DoesNotExist:
                     return Response({'error': 'Solapin no encontrado para este ciudadano bash, imposible actualizar'}, status=status.HTTP_404_NOT_FOUND)
             
-            ciudadano.solapin = nuevo
-            ciudadano.save()
-            
-            ciudadanobash.solapin = nuevo
-            ciudadanobash.save()
-            
             data['numerosolapin'] = nuevo
 
             solapin_serializer = SolapinSerializer(solapin, data=data, partial=True)
             if solapin_serializer.is_valid():
                 solapin_serializer.save()
+                
+                ciudadano.solapin = nuevo
+                ciudadano.save()
+            
+                ciudadanobash.solapin = nuevo
+                ciudadanobash.save()
                 
                 return Response(solapin_serializer.data, status=status.HTTP_200_OK)
             else:
