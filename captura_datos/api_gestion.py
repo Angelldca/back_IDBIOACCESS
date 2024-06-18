@@ -4,11 +4,10 @@ from .serializers import CiudadanoSerializer, CiudadanoBashSerializer
 from .serializers_additional import RegistroPagoSerializer, SolapinSerializer, TipoSolapinSerializer, CausaAnulacionSerializer, CodigobarraSerializer, NumerosolapinSerializer, SerialSerializer
 from .serializers_additional import CiudadanoSolapinHistSerializer, NewSolapinHistSerializer, OperacionSolapinSerializer, TipoOperacionSolapinSerializer
 from rest_framework import viewsets, status, filters
-from django.db.models import Q
+from django.db.models import Q, IntegerField, Count
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models.functions import Cast, Substr
-from django.db.models import IntegerField
 from django.db import transaction
 from .api import CiudadanoPagination
 
@@ -317,6 +316,14 @@ class SolapinViewSet(viewsets.ModelViewSet):
             serializer = SerialSerializer(solapin)
             return Response(serializer.data)
         return Response({'error': 'No data found'}, status=404)
+    
+    @action(detail=False, methods=['get'])
+    def get_solapin_count_by_serial(self, request):
+        serial = request.query_params.get('serial')
+        if not serial:
+            return Response({'error': 'Serial is required'}, status=status.HTTP_400_BAD_REQUEST)
+        count = Dsolapin.objects.filter(serial=serial).count()
+        return Response({'count': count}, status=status.HTTP_200_OK)
     
 class TipoSolapinViewSet (viewsets.ModelViewSet):
     pagination_class = None
