@@ -217,7 +217,6 @@ class SolapinViewSet(viewsets.ModelViewSet):
             ciudadanobash.save()
             
             ciudadano_solapin.delete()
-            solapin.delete()
             
             return Response(status=status.HTTP_204_NO_CONTENT)
         
