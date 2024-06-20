@@ -1,20 +1,38 @@
 from .models import Dciudadano, Dciudadanobash, Dciudadanosolapin, Dsolapin, Dregistropago, Ntiposolapin, Ncausaanulacion
 from .models import Dciudadanosolapinhist, Dnewsolapinhistorico, Doperacionsolapin, Ntipooperacionsolapin
-from .serializers import CiudadanoSerializer, CiudadanoBashSerializer
+from .models import Dnewsolapinhistorico
+from .serializers import CiudadanoSerializer
 from .serializers_additional import RegistroPagoSerializer, SolapinSerializer, TipoSolapinSerializer, CausaAnulacionSerializer, CodigobarraSerializer, NumerosolapinSerializer, SerialSerializer
 from .serializers_additional import CiudadanoSolapinHistSerializer, NewSolapinHistSerializer, OperacionSolapinSerializer, TipoOperacionSolapinSerializer
 from rest_framework import viewsets, status, filters
-from django.db.models import Q, IntegerField, Count
+from django.db.models import Q, IntegerField
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models.functions import Cast, Substr
 from django.db import transaction
 from .api import CiudadanoPagination
+from rest_framework.pagination import PageNumberPagination
+from django.db import connection
+from rest_framework.decorators import authentication_classes, permission_classes
+from datetime import datetime, timedelta
+from django.utils import timezone
+from copy import copy
+from django.contrib.admin.models import LogEntry
+from django.contrib.contenttypes.models import ContentType
+from rest_framework.permissions import IsAuthenticated
+from .api_seguridad import CustomModelPermissions
+import csv
+from django.http import HttpResponse
+
+class RegistroPagoPagination(PageNumberPagination):
+     page_size_query_param = 10  # Número de elementos por páginas
+     page_size =6
 
 ################### LISTADO DE CIUDADANOS SIN SOLAPIN #########################################
 class CiudadanosSinSolapinList(viewsets.ModelViewSet):
     serializer_class = CiudadanoSerializer
     pagination_class = CiudadanoPagination
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
     def get_queryset(self):
         return Dciudadano.objects.filter(
             ~Q(idciudadano__in=Dciudadanosolapin.objects.values('idciudadano'))
@@ -57,6 +75,7 @@ class CiudadanosSinSolapinList(viewsets.ModelViewSet):
 class CiudadanosConSolapinList(viewsets.ModelViewSet):
     serializer_class = CiudadanoSerializer
     pagination_class = CiudadanoPagination
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
 
     def get_queryset(self):
         return Dciudadano.objects.filter(
@@ -99,6 +118,7 @@ class CiudadanosConSolapinList(viewsets.ModelViewSet):
 class CiudadanosSolapinDesactivadoList(viewsets.ModelViewSet):
     serializer_class = CiudadanoSerializer
     pagination_class = CiudadanoPagination
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
 
     def get_queryset(self):
         # Filtrar los ciudadanos cuyo solapín asociado tiene el estado 0
@@ -146,6 +166,7 @@ class CiudadanosSolapinDesactivadoList(viewsets.ModelViewSet):
 ########################## VISTAS SOLAPIN #################################################
 class SolapinViewSet(viewsets.ModelViewSet):
     serializer_class = SolapinSerializer
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
     queryset = Dsolapin.objects.all()
     filter_backends = [filters.SearchFilter]
     search_fields = ['numerosolapin']
@@ -187,6 +208,22 @@ class SolapinViewSet(viewsets.ModelViewSet):
                 ciudadanobash.solapin = data['numerosolapin']
                 ciudadanobash.save()
                 
+                print(request.user.id)
+                print(ContentType.objects.get_for_model(Dsolapin).pk)
+                print(solapin)
+                print(data['numerosolapin'])
+                print(timezone.now())
+                
+                LogEntry.objects.create(
+                    user_id=self.request.user.id,
+                    content_type_id=ContentType.objects.get_for_model(Dsolapin).pk,
+                    object_id=solapin,
+                    object_repr= data['numerosolapin'],
+                    action_time=timezone.now(),
+                    action_flag=1,
+                    change_message="Generar"
+                )
+                
                 return Response(solapin_serializer.data, status=status.HTTP_201_CREATED)
             else:
                 return Response(solapin_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -217,6 +254,16 @@ class SolapinViewSet(viewsets.ModelViewSet):
             ciudadanobash.save()
             
             ciudadano_solapin.delete()
+            
+            LogEntry.objects.create(
+                    user_id=self.request.user.id,
+                    content_type_id=ContentType.objects.get_for_model(Dciudadanosolapin).pk,
+                    object_id=solapin,
+                    object_repr= data['numerosolapin'],
+                    action_time=timezone.now(),
+                    action_flag=3,
+                    change_message="Eliminar"
+                )
             
             return Response(status=status.HTTP_204_NO_CONTENT)
         
@@ -270,6 +317,16 @@ class SolapinViewSet(viewsets.ModelViewSet):
             
                 ciudadanobash.solapin = nuevo
                 ciudadanobash.save()
+                
+                LogEntry.objects.create(
+                    user_id=self.request.user.id,
+                    content_type_id=ContentType.objects.get_for_model(Dsolapin).pk,
+                    object_id=solapin,
+                    object_repr= data['numerosolapin'],
+                    action_time=timezone.now(),
+                    action_flag=2,
+                    change_message=data['action_description']
+                )
                 
                 return Response(solapin_serializer.data, status=status.HTTP_200_OK)
             else:
@@ -339,9 +396,75 @@ class CausaAnulacionViewSet (viewsets.ModelViewSet):
 ###################### REGISTRO PAGOS ###########################################33
 
 class RegistroPagoViewSet(viewsets.ModelViewSet):
-    pagination_class = None
+    pagination_class = RegistroPagoPagination
     queryset = Dregistropago.objects.all()
     serializer_class = RegistroPagoSerializer
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
+    
+    
+    # Listar nuevos solapines por rango de fecha
+    @action(detail=False, methods=["get"], name="rango_fecha", url_path='rango_fecha')
+    def rango_fecha(self, request):
+        self.paginator.page_size = request.GET.get('page_size', self.paginator.page_size)
+        fecha_inicio_str = request.query_params.get('fecha_inicio', '')
+        fecha_fin_str = request.query_params.get('fecha_fin', '')
+        
+        if not fecha_inicio_str or not fecha_fin_str:
+            return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d')
+            fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d')
+        except ValueError:
+            return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Ajustar las fechas al rango correcto
+        tz = timezone.get_current_timezone()  # Usar la zona horaria actual configurada en Django
+        fecha_inicio = timezone.make_aware(fecha_inicio, tz)
+        fecha_fin = timezone.make_aware(fecha_fin + timedelta(days=1), tz)
+        self.queryset = self.queryset.filter(fecha__range=(fecha_inicio, fecha_fin))
+        self.queryset = self.queryset.order_by('-fecha')
+        
+        page = self.paginate_queryset(self.queryset)
+        if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(self.queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=["get"], name="exportar_csv", url_path='exportar_csv')
+    def exportar_csv(self, request):
+        fecha_inicio_str = request.GET.get('fecha_inicio', '')
+        fecha_fin_str = request.GET.get('fecha_fin', '')
+        
+        if not fecha_inicio_str or not fecha_fin_str:
+            return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d')
+            fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d')
+        except ValueError:
+            return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Ajustar las fechas al rango correcto
+        tz = timezone.get_current_timezone()  # Usar la zona horaria actual configurada en Django
+        fecha_inicio = timezone.make_aware(fecha_inicio, tz)
+        fecha_fin = timezone.make_aware(fecha_fin + timedelta(days=1), tz)
+        queryset = Dregistropago.objects.filter(fecha__range=(fecha_inicio, fecha_fin)).order_by('-fecha')
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="registropago_{fecha_inicio_str}_to_{fecha_fin_str}.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'ID Ciudadano', 'ID Solapin', 'ID Usuario', 'ID Anulacion', 'Monto', 'Tipo de pago',
+                         'ID Transferencia', 'Fecha'])
+        
+        for record in queryset:
+            writer.writerow([record.idregistropago, record.idciudadano, record.idsolapin, record.idcausaanulacion, 
+                             record.monto, record.tipopago, record.idtransferencia, record.fecha.strftime('%d-%m-%Y')])
+        
+        return response
     
 class CiudadanoSolapinHistViewSet(viewsets.ModelViewSet):
     pagination_class = None
@@ -349,16 +472,127 @@ class CiudadanoSolapinHistViewSet(viewsets.ModelViewSet):
     serializer_class = CiudadanoSolapinHistSerializer
 
 class NewSolapinHistViewSet(viewsets.ModelViewSet):
-    pagination_class = None
     queryset = Dnewsolapinhistorico.objects.all()
     serializer_class = NewSolapinHistSerializer
+    pagination_class = CiudadanoPagination
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
+    
+    # Listar nuevos solapines por rango de fecha
+    @action(detail=False, methods=["get"], name="rango_fecha", url_path='rango_fecha')
+    def rango_fecha(self, request):
+        self.paginator.page_size = request.GET.get('page_size', self.paginator.page_size)
+        fecha_inicio_str = request.query_params.get('fecha_inicio', '')
+        fecha_fin_str = request.query_params.get('fecha_fin', '')
+        
+        if not fecha_inicio_str or not fecha_fin_str:
+            return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d')
+            fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d')
+        except ValueError:
+            return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Ajustar las fechas al rango correcto
+        tz = timezone.get_current_timezone()  # Usar la zona horaria actual configurada en Django
+        fecha_inicio = timezone.make_aware(fecha_inicio, tz)
+        fecha_fin = timezone.make_aware(fecha_fin + timedelta(days=1), tz)
+        self.queryset = self.queryset.filter(fecha__range=(fecha_inicio, fecha_fin))
+        self.queryset = self.queryset.order_by('-fecha')
+        
+        page = self.paginate_queryset(self.queryset)
+        if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(self.queryset, many=True)
+        return Response(serializer.data)
+    
+        ############################################ CSV ##############################################
+        # Exportar nuevos solapines por rango de fecha a CSV
+    @action(detail=False, methods=["get"], name="exportar_csv", url_path='exportar_csv')
+    def exportar_csv(self, request):
+        fecha_inicio_str = request.GET.get('fecha_inicio', '')
+        fecha_fin_str = request.GET.get('fecha_fin', '')
+        
+        if not fecha_inicio_str or not fecha_fin_str:
+            return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d')
+            fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d')
+        except ValueError:
+            return Response({'error': 'Formato de fecha incorrecto. Utilice el formato YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Ajustar las fechas al rango correcto
+        tz = timezone.get_current_timezone()  # Usar la zona horaria actual configurada en Django
+        fecha_inicio = timezone.make_aware(fecha_inicio, tz)
+        fecha_fin = timezone.make_aware(fecha_fin + timedelta(days=1), tz)
+        queryset = Dnewsolapinhistorico.objects.filter(fecha__range=(fecha_inicio, fecha_fin)).order_by('-fecha')
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="newsolapinhistorico_{fecha_inicio_str}_to_{fecha_fin_str}.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'ID Solapin','Numero Solapin','Serial', 'Codigo Barra',
+         'Tipo Solapin', 'Nombre Completo','Area','Rol Universitario',
+         'Residente','Fecha','Datos Tipo Solapin','Datos Categoria Solapin','ID Ciudadano'])
+        
+        for record in queryset:
+            writer.writerow([record.idhistorico, record.idsolapin, record.numerosolapin, record.serial, record.codigobarra, 
+                             record.idtiposolapin, record.nombrecompleto, record.area, record.roluniversitario, record.residente,
+                             record.fecha.strftime('%d-%m-%Y'), record.datatiposolapin, record.datacategoriasolapin, record.idciudadano])
+        
+        return response
     
 class OperacionSolapinViewSet(viewsets.ModelViewSet):
-    pagination_class = None
+    pagination_class = CiudadanoPagination
     queryset = Doperacionsolapin.objects.all()
     serializer_class = OperacionSolapinSerializer
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['numerosolapin']
+
+    @action(detail=False, methods=['get'])
+    def get_operacion_by_numero(self, request):
+        numerosolapin = request.query_params.get('numerosolapin', None)
+        if numerosolapin is not None:
+            operacionsolapin = Doperacionsolapin.objects.filter(numerosolapin__icontains=numerosolapin)
+            page = self.paginate_queryset(operacionsolapin)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            
+            serializer = self.get_serializer(operacionsolapin, many=True)
+            return Response(serializer.data)
+        else:
+            return Response({'error': 'Parameter "search" is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+    @action(detail=False, methods=['get'], name="exportar_csv", url_path='exportar_csv')
+    def exportar_csv(self, request):
+        numerosolapin = request.query_params.get('numerosolapin', None)
+        if numerosolapin is None:
+            return Response({'error': 'Parameter "numerosolapin" is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        queryset = Doperacionsolapin.objects.filter(numerosolapin__icontains=numerosolapin)
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="operacionsolapin_{numerosolapin}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'ID Solapin', 'Codigo Barra', 'Numero de Solapin', 'Serial', 'Fecha', 'ID Usuario',
+                         'ID Causa Anulacion', 'ID Tipo Operacion Solapin'])
+
+        for record in queryset:
+            writer.writerow([record.idoperacionsolapin, record.idsolapin, record.codigobarra, record.numerosolapin, 
+                             record.serial, record.fechaoperacion.strftime('%d-%m-%Y'), record.idusuario, record.idcausaanulacion,
+                             record.idtipooperacionsolapin,])
+
+        return response
     
 class TipoOperacionSolapinViewSet(viewsets.ModelViewSet):
     pagination_class = None
     queryset = Ntipooperacionsolapin.objects.all()
     serializer_class = TipoOperacionSolapinSerializer
+    
+############################# REPORTES ###################################################
