@@ -76,7 +76,6 @@ class CiudadanosConSolapinList(viewsets.ModelViewSet):
     serializer_class = CiudadanoSerializer
     pagination_class = CiudadanoPagination
     permission_classes = [IsAuthenticated, CustomModelPermissions]
-
     def get_queryset(self):
         return Dciudadano.objects.filter(
             idciudadano__in=Dciudadanosolapin.objects.values('idciudadano')
@@ -119,7 +118,6 @@ class CiudadanosSolapinDesactivadoList(viewsets.ModelViewSet):
     serializer_class = CiudadanoSerializer
     pagination_class = CiudadanoPagination
     permission_classes = [IsAuthenticated, CustomModelPermissions]
-
     def get_queryset(self):
         # Filtrar los ciudadanos cuyo solapín asociado tiene el estado 0
         solapines_estado_cero = Dsolapin.objects.filter(estado=0).values('idsolapin')
@@ -166,11 +164,10 @@ class CiudadanosSolapinDesactivadoList(viewsets.ModelViewSet):
 ########################## VISTAS SOLAPIN #################################################
 class SolapinViewSet(viewsets.ModelViewSet):
     serializer_class = SolapinSerializer
-    permission_classes = [IsAuthenticated, CustomModelPermissions]
     queryset = Dsolapin.objects.all()
     filter_backends = [filters.SearchFilter]
     search_fields = ['numerosolapin']
-    
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
     ################ BUSCAR EL SOLAPIN ######################################################
     @action(detail=False, methods=['post'])
     def get_solapin_by_numero(self, request):
@@ -401,7 +398,6 @@ class RegistroPagoViewSet(viewsets.ModelViewSet):
     serializer_class = RegistroPagoSerializer
     permission_classes = [IsAuthenticated, CustomModelPermissions]
     
-    
     # Listar nuevos solapines por rango de fecha
     @action(detail=False, methods=["get"], name="rango_fecha", url_path='rango_fecha')
     def rango_fecha(self, request):
@@ -470,6 +466,7 @@ class CiudadanoSolapinHistViewSet(viewsets.ModelViewSet):
     pagination_class = None
     queryset = Dciudadanosolapinhist.objects.all()
     serializer_class = CiudadanoSolapinHistSerializer
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
 
 class NewSolapinHistViewSet(viewsets.ModelViewSet):
     queryset = Dnewsolapinhistorico.objects.all()
@@ -549,9 +546,9 @@ class OperacionSolapinViewSet(viewsets.ModelViewSet):
     pagination_class = CiudadanoPagination
     queryset = Doperacionsolapin.objects.all()
     serializer_class = OperacionSolapinSerializer
-    permission_classes = [IsAuthenticated, CustomModelPermissions]
     filter_backends = [filters.SearchFilter]
     search_fields = ['numerosolapin']
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
 
     @action(detail=False, methods=['get'])
     def get_operacion_by_numero(self, request):
@@ -594,5 +591,6 @@ class TipoOperacionSolapinViewSet(viewsets.ModelViewSet):
     pagination_class = None
     queryset = Ntipooperacionsolapin.objects.all()
     serializer_class = TipoOperacionSolapinSerializer
+    permission_classes = [IsAuthenticated, CustomModelPermissions]
     
 ############################# REPORTES ###################################################
