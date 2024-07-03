@@ -57,9 +57,10 @@ class CiudadanoBashViewCapturaBiograficos(viewsets.ModelViewSet):
         carnetidentidad = request.data['carnetidentidad']
         
         ciudadano_existente = Dciudadanobash.objects.filter(
-            idexpediente=idexpediente,
-            carnetidentidad=carnetidentidad,
-            ).exists()
+               idexpediente=idexpediente
+           ).first() or Dciudadano.objects.filter(
+               carnetidentidad=carnetidentidad
+           ).first()
         if ciudadano_existente:
             return Response("El ciudadano ya existe", status=status.HTTP_400_BAD_REQUEST)
         serializer = CiudadanoBashSerializer(data=request.data)
