@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Dusuario, Dciudadano, Dciudadanobash, Dsolapin,Ntiposolapin, Dimagenfacial, Nestado, Dregistropago
+from .models import Dusuario, Dciudadano,Ncausaanulacion, Dciudadanobash, Dsolapin,Ntiposolapin, Dimagenfacial, Nestado, Dregistropago
 # Register your models here.
 admin.site.register(Dusuario)
 admin.site.register(Dciudadano)
