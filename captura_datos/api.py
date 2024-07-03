@@ -198,12 +198,12 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
         if idexpediente or carnetidentidad or solapin or idpersona:
            
            ciudadano_existente = Dciudadano.objects.filter(
-            idexpediente=idexpediente,
-            carnetidentidad=carnetidentidad,
-            solapin=solapin,
-            idpersona=idpersona
-            ).exists()
-
+               idexpediente=idexpediente
+           ).first() or Dciudadano.objects.filter(
+               carnetidentidad=carnetidentidad
+           ).first() or Dciudadano.objects.filter(
+               idpersona=idpersona
+           ).first()
            if ciudadano_existente:
                
                 ciudadano = Dciudadano.objects.filter(
