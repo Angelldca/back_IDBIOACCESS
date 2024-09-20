@@ -199,21 +199,23 @@ class CiudadanoViewCapturaBiograficos(viewsets.ModelViewSet):
         if idexpediente or carnetidentidad or solapin or idpersona:
            
            ciudadano_existente = Dciudadano.objects.filter(
+               idpersona=idpersona
+           ).first() or Dciudadano.objects.filter(
                idexpediente=idexpediente
            ).first() or Dciudadano.objects.filter(
                carnetidentidad=carnetidentidad
-           ).first() or Dciudadano.objects.filter(
-               idpersona=idpersona
            ).first()
            if ciudadano_existente:
-               
+                '''
                 ciudadano = Dciudadano.objects.filter(
                 idexpediente=idexpediente,
                 carnetidentidad=carnetidentidad,
                 solapin=solapin,
                 idpersona=idpersona
                 ).first()
-                serializer = CiudadanoSerializer(ciudadano)
+                '''
+                
+                serializer = CiudadanoSerializer(ciudadano_existente)
                 return Response(serializer.data, status=status.HTTP_200_OK)
            else:
               serializer = self.serializer_class(data=request.data)

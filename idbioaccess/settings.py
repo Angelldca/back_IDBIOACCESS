@@ -48,7 +48,8 @@ INSTALLED_APPS = [
     'captura_datos',
     'rest_framework',
     'corsheaders',
-    'django_cas_ng'
+    'django_cas_ng',
+    'django_extensions',
 
 ]
 
@@ -147,11 +148,21 @@ if not DEBUG:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-
+ALLOWED_HOSTS = ['127.0.0.1',
+ 'localhost','192.168.230.177', '192.168.230.207',
+  '192.168.230.207','192.168.230.*',
+ '10.140.253.208']
 CORS_ALLOWED_ORIGINS = [
-"https://api.domain.com",
-"http://localhost:8080",
-"http://127.0.0.1:*",
+    "https://api.domain.com",          # Dominio principal
+    "http://localhost:8080",           # Localhost con puerto 8080
+    "http://127.0.0.1:8000",           # Localhost con puerto 8000
+    "http://192.168.137.60:8000",      # IP del servidor en red local
+    "https://192.168.137.60:8000",     # Acceso con HTTPS en red local (si se usa HTTPS)
+    "http://192.168.137.60:4200",      # Angular en red local puerto 4200
+    "http://0.0.0.0:8000",             # Todos los hosts en el puerto 8000 para desarrollo
+    "https://0.0.0.0:8000",
+       # servidor Django
+    'https://192.168.230.*',
 ]
 CORS_ORIGIN_ALLOW_ALL = True
 
